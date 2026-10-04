@@ -701,51 +701,92 @@
   };
 
   /* ---------- FUNCTIONAL BLOCKS ---------- */
+  const CRAFT_WOOD = pal(0x9a7038, 0xa87c42, 0xb6884c, 0xc49456, 0xd2a060);
+  const CRAFT_SEAM = [70, 46, 20];
+  const CRAFT_EDGE = [56, 36, 14];
+  const GRID_CELL = pal(0xa85420, 0xb86028, 0xc66c30, 0xd47838, 0xe08440);
+  const GRID_LINE = [64, 34, 14];
+  const GRID_BORDER = pal(0xd8c090, 0xe2cc9c, 0xecd6a8);
+
+  function craftWoodBase(t, r) {
+    // base wood with vertical grain
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, ramp(CRAFT_WOOD, r()));
+    // horizontal grain streaks
+    for (let y = 0; y < 16; y++) if (r() < 0.35) for (let x = 0; x < 16; x++) t.bump(x, y, -7);
+    // vertical plank seams (4 planks)
+    [0, 5, 10, 15].forEach((sx) => {
+      for (let y = 0; y < 16; y++) { putc(t, sx, y, CRAFT_SEAM); if (sx + 1 < 16) t.bump(sx + 1, y, -16); }
+    });
+    // top highlight / bottom shadow
+    for (let x = 0; x < 16; x++) { t.bump(x, 0, 16); t.bump(x, 15, -20); }
+  }
+
   T.crafting_table_top = function (r) {
     const t = createImage();
-    fillNoise(t, r, WOOD_PAL, { cells: 4, clump: 0.4, stretch: 1.2 });
-    for (let i = 2; i < 14; i++) {
-      t.bump(i, 5, -25);
-      t.bump(i, 10, -25);
-      t.bump(5, i, -25);
-      t.bump(10, i, -25);
-    }
+    // cream border frame
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, pick(r, GRID_BORDER));
+    // 3x3 grid cells
+    [1, 6, 11].forEach((sx) => [1, 6, 11].forEach((sy) => {
+      const tone = r();
+      for (let y = sy; y < sy + 4; y++) for (let x = sx; x < sx + 4; x++) {
+        let c = ramp(GRID_CELL, (tone * 0.5 + r() * 0.5 - 0.5) * 1.3 + 0.5);
+        if (y === sy) c = shade(c, 14);
+        if (y === sy + 3) c = shade(c, -16);
+        if (x === sx) c = shade(c, 10);
+        if (x === sx + 3) c = shade(c, -12);
+        putc(t, x, y, c);
+      }
+    }));
+    // dark grid lines
+    [5, 10].forEach((g) => { for (let i = 0; i < 16; i++) { putc(t, g, i, GRID_LINE); putc(t, i, g, GRID_LINE); } });
+    // dark outline around border
     for (let i = 0; i < 16; i++) {
-      t.bump(i, 0, 12);
-      t.bump(i, 15, -12);
-      t.bump(0, i, 8);
-      t.bump(15, i, -8);
+      putc(t, i, 0, CRAFT_EDGE); putc(t, i, 15, CRAFT_EDGE);
+      putc(t, 0, i, CRAFT_EDGE); putc(t, 15, i, CRAFT_EDGE);
     }
     return t.finish();
   };
 
   T.crafting_table_side = function (r) {
     const t = createImage();
-    fillNoise(t, r, WOOD_PAL, { cells: 4, clump: 0.4, stretch: 1.2 });
-    for (let x = 0; x < 16; x++) {
-      t.bump(x, 0, 10);
-      t.bump(x, 15, -15);
-      t.bump(x, 5, -18);
-      t.bump(x, 10, -18);
+    craftWoodBase(t, r);
+    const blade = [176, 176, 184], bladeHi = [222, 222, 228], bladeDk = [104, 104, 112];
+    const handle = [104, 70, 34], handleDk = [72, 46, 20];
+    // saw blade (diagonal, with teeth)
+    for (let i = 0; i < 8; i++) {
+      const x = 3 + i, y = 10 - i;
+      putc(t, x, y, bladeHi);
+      putc(t, x, y + 1, blade);
+      if (i % 2 === 0) putc(t, x, y + 2, bladeDk);
     }
+    // saw handle
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) putc(t, 2 + i, 12 + j, handle);
+    putc(t, 2, 12, handleDk); putc(t, 4, 13, handleDk);
     return t.finish();
   };
 
   T.crafting_table_front = function (r) {
     const t = createImage();
-    fillNoise(t, r, WOOD_PAL, { cells: 4, clump: 0.4, stretch: 1.2 });
-    for (let x = 0; x < 16; x++) {
-      t.bump(x, 0, 10);
-      t.bump(x, 15, -15);
-      t.bump(x, 8, -18);
-    }
+    craftWoodBase(t, r);
     const dark = [40, 26, 12];
-    // saw
-    for (let i = 0; i < 6; i++) putc(t, 2 + i, 3 + i, dark);
-    for (let i = 0; i < 4; i++) putc(t, 2 + i, 3 + i, [70, 50, 30]);
-    // hammer
-    putc(t, 10, 3, dark); putc(t, 11, 3, dark); putc(t, 10, 4, dark); putc(t, 11, 4, dark);
-    for (let y = 5; y < 11; y++) putc(t, 10, y, dark);
+    const blade = [176, 176, 184], bladeHi = [222, 222, 228], bladeDk = [104, 104, 112];
+    const handle = [104, 70, 34], handleDk = [72, 46, 20];
+    // saw blade (diagonal, lower-left)
+    for (let i = 0; i < 8; i++) {
+      const x = 2 + i, y = 11 - i;
+      putc(t, x, y, bladeHi);
+      putc(t, x, y + 1, blade);
+      if (i % 2 === 0) putc(t, x, y + 2, bladeDk);
+    }
+    // saw handle
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) putc(t, 1 + i, 12 + j, handle);
+    putc(t, 1, 12, dark); putc(t, 3, 13, dark);
+    // hammer head (upper-right)
+    for (let x = 9; x < 13; x++) for (let y = 3; y < 6; y++) putc(t, x, y, blade);
+    for (let x = 9; x < 13; x++) putc(t, x, 3, bladeHi);
+    for (let x = 9; x < 13; x++) putc(t, x, 5, bladeDk);
+    // hammer handle
+    for (let y = 6; y < 13; y++) { putc(t, 10, y, handle); putc(t, 11, y, handleDk); }
     return t.finish();
   };
 

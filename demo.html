@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MC-Tex — Visualizador 3D de Blocos</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{
+    background:#0b0e13;color:#dbe4f0;min-height:100vh;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- barra superior ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:10;
+    display:flex;align-items:center;gap:16px;
+    padding:12px 18px;
+    background:rgba(11,14,19,.9);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid #1c2431;
+  }
+  .brand{font-size:14px;font-weight:700;letter-spacing:.4px;white-space:nowrap}
+  .brand em{font-style:normal;color:#6b7889;font-weight:400}
+  .brand .dot{
+    display:inline-block;width:9px;height:9px;border-radius:2px;
+    background:#6fd36f;margin-right:9px;vertical-align:middle;
+    box-shadow:0 0 10px #6fd36f99;
+  }
+  .controls{margin-left:auto;display:flex;align-items:center;gap:12px}
+  #search{
+    width:230px;max-width:42vw;
+    background:#131922;border:1px solid #242e3d;color:#dbe4f0;
+    padding:8px 12px;border-radius:9px;
+    font:inherit;font-size:12px;outline:none;transition:.15s;
+  }
+  #search:focus{border-color:#3f7a4a;box-shadow:0 0 0 3px #6fd36f22}
+  .count{font-size:11px;color:#67748a;white-space:nowrap}
+
+  /* ---------- grade ---------- */
+  .gallery{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(116px,1fr));
+    gap:10px;
+    padding:14px 18px 70px;
+  }
+  .card{
+    background:#131922;
+    border:1px solid #1c2431;
+    border-radius:11px;
+    padding:8px;
+    cursor:pointer;
+    user-select:none;
+    transition:transform .13s ease,border-color .13s ease,box-shadow .13s ease;
+  }
+  .card:hover{
+    transform:translateY(-3px);
+    border-color:#3a4a60;
+    box-shadow:0 10px 24px #000a;
+  }
+  .card canvas{
+    display:block;width:100%;height:auto;border-radius:7px;
+    background:#0f131a;
+    image-rendering:-moz-crisp-edges;
+    image-rendering:crisp-edges;
+    image-rendering:pixelated;
+  }
+  .card .label{
+    margin-top:6px;font-size:10px;text-align:center;color:#8494a8;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .card:hover .label{color:#dbe4f0}
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed;inset:0;z-index:50;
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;
+    background:rgba(6,8,12,.87);
+    backdrop-filter:blur(7px);
+    animation:fade .15s ease;
+  }
+  .overlay[hidden]{display:none}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+
+  .viewer{
+    position:relative;
+    display:flex;flex-direction:column;align-items:center;gap:12px;
+    padding:16px;
+    background:#10151d;
+    border:1px solid #232c3a;
+    border-radius:16px;
+    box-shadow:0 30px 90px #000d;
+    animation:pop .18s cubic-bezier(.2,.9,.3,1.2);
+  }
+  @keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+
+  #bigCanvas{
+    display:block;border-radius:10px;background:#0f131a;
+    cursor:grab;touch-action:none;
+    image-rendering:-moz-crisp-edges;
+    image-rendering:crisp-edges;
+    image-rendering:pixelated;
+  }
+  #bigCanvas:active{cursor:grabbing}
+
+  .info{text-align:center;line-height:1.5}
+  .info h2{margin:0;font-size:15px;letter-spacing:.5px;color:#e8f0fb}
+  .faces{margin-top:5px;font-size:10.5px;color:#6f7d92}
+  .faces b{color:#b9c6d8;font-weight:600}
+
+  .viewer-tools{display:flex;gap:8px}
+  .viewer-tools button{
+    width:40px;height:34px;border-radius:9px;
+    background:#182030;color:#c8d5e6;border:1px solid #263143;
+    font:inherit;font-size:13px;cursor:pointer;transition:.13s;
+  }
+  .viewer-tools button:hover{background:#22304a;border-color:#3b4d68}
+  .viewer-tools button.active{background:#173d23;border-color:#3f7a4a;color:#8ef09a}
+  .viewer-tools button:disabled{opacity:.35;cursor:default}
+
+  .close{
+    position:absolute;top:10px;right:10px;
+    width:30px;height:30px;border-radius:8px;
+    background:#182030;border:1px solid #263143;color:#c8d5e6;
+    cursor:pointer;font:inherit;font-size:13px;line-height:1;
+    transition:.13s;
+  }
+  .close:hover{background:#3a1f22;border-color:#6b3238;color:#ff9b9b}
+
+  .hint{
+    font-size:10px;color:#55627a;text-align:center;max-width:420px;
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="dot"></span>MC-Tex <em>· visualizador 3D</em></div>
+  <div class="controls">
+    <input id="search" type="search" placeholder="Filtrar blocos…" autocomplete="off" spellcheck="false">
+    <span id="count" class="count"></span>
+  </div>
+</header>
+
+<main id="gallery" class="gallery"></main>
+
+<div id="overlay" class="overlay" hidden>
+  <div class="viewer">
+    <button id="closeBtn" class="close" title="Fechar (Esc)">✕</button>
+    <canvas id="bigCanvas"></canvas>
+    <div class="info">
+      <h2 id="bigName">—</h2>
+      <div id="bigFaces" class="faces"></div>
+    </div>
+    <div class="viewer-tools">
+      <button id="prevBtn"  title="Anterior (←)">◀</button>
+      <button id="autoBtn"  title="Auto-rotacionar (Espaço)">⟳</button>
+      <button id="resetBtn" title="Resetar vista">⌂</button>
+      <button id="pngBtn"   title="Baixar PNG do cubo">⤓</button>
+      <button id="nextBtn"  title="Próximo (→)">▶</button>
+    </div>
+    <div class="hint">arraste para girar · scroll para zoom · ← → para navegar</div>
+  </div>
+</div>
+
+<script src="mc-tex.js"></script>
+<script>
+(function () {
+'use strict';
+
+/* ============================================================
+   1. GEOMETRIA DO CUBO
+   ------------------------------------------------------------
+   Cada face guarda: normal (para back-face culling + luz),
+   os 4 vértices em espaço local [-0.5 .. 0.5] e a chave de
+   textura que ela usa (top / bottom / side / front).
+   Os vértices estão ordenados de forma que, vistos de fora,
+   A→B é "direita na tela" e A→D é "baixo na tela".
+   ============================================================ */
+const FACE_DEFS = [
+  { key:'side',   normal:[ 1, 0, 0], verts:[[ .5, .5, .5],[ .5, .5,-.5],[ .5,-.5,-.5],[ .5,-.5, .5]] },
+  { key:'side',   normal:[-1, 0, 0], verts:[[-.5, .5,-.5],[-.5, .5, .5],[-.5,-.5, .5],[-.5,-.5,-.5]] },
+  { key:'top',    normal:[ 0, 1, 0], verts:[[-.5, .5,-.5],[ .5, .5,-.5],[ .5, .5, .5],[-.5, .5, .5]] },
+  { key:'bottom', normal:[ 0,-1, 0], verts:[[-.5,-.5, .5],[ .5,-.5, .5],[ .5,-.5,-.5],[-.5,-.5,-.5]] },
+  { key:'front',  normal:[ 0, 0, 1], verts:[[-.5, .5, .5],[ .5, .5, .5],[ .5,-.5, .5],[-.5,-.5, .5]] },
+  { key:'side',   normal:[ 0, 0,-1], verts:[[ .5, .5,-.5],[-.5, .5,-.5],[-.5,-.5,-.5],[ .5,-.5,-.5]] }
+];
+const FACE_UV = [[0,0],[1,0],[1,1],[0,1]];   // (u,v) de cada canto
+
+const TEXSZ = 16;
+const DIST  = 5.0;                            // distância da câmera (unidades de cubo)
+
+/* ============================================================
+   2. ACESSO AOS PIXELS DAS TEXTURAS
+   ============================================================ */
+const pixelCache = new Map();
+
+function pixels(name) {
+  let px = pixelCache.get(name);
+  if (px) return px;
+  try {
+    const canvas = MCTex.get(name);
+    px = canvas.getContext('2d').getImageData(0, 0, TEXSZ, TEXSZ).data;
+  } catch (e) {
+    px = new Uint8ClampedArray(TEXSZ * TEXSZ * 4);
+    for (let i = 0; i < px.length; i += 4) {
+      px[i] = 255; px[i + 1] = 0; px[i + 2] = 255; px[i + 3] = 255;
+    }
+  }
+  pixelCache.set(name, px);
+  return px;
+}
+
+/* ============================================================
+   3. RESOLUÇÃO DE FACES  (mesma lógica do mc-tex.js)
+   ============================================================ */
+const ALL = new Set(MCTex.list());
+
+const SPECIAL_BOTTOM = { grass: 'dirt' };
+const SPECIAL_FRONT  = { pumpkin: 'pumpkin_face' };
+
+function resolveFaces(name) {
+  const has   = (n) => ALL.has(n);
+  const top   = has(name + '_top')  ? name + '_top'  : name;
+  const side  = has(name + '_side') ? name + '_side' : name;
+  const bot   = SPECIAL_BOTTOM[name] || (has(name + '_bottom') ? name + '_bottom' : top);
+  let   front = SPECIAL_FRONT[name]  || (has(name + '_front')  ? name + '_front'  : null);
+  if (front && !has(front)) front = null;
+  return { top, side, bottom: bot, front };
+}
+
+const meshCache = new Map();
+function mesh(name) {
+  let m = meshCache.get(name);
+  if (m) return m;
+  const f = resolveFaces(name);
+  const map = {
+    top:    pixels(f.top),
+    bottom: pixels(f.bottom),
+    side:   pixels(f.side),
+    front:  pixels(f.front || f.side)
+  };
+  m = FACE_DEFS.map(d => ({ normal: d.normal, verts: d.verts, tex: map[d.key] }));
+  meshCache.set(name, m);
+  return m;
+}
+
+/* ============================================================
+   4. VIEW (canvas + framebuffer)
+   ============================================================ */
+function createView(canvas, w, h) {
+  const view = {
+    canvas,
+    ctx: canvas.getContext('2d', { alpha: false }),
+    w: 0, h: 0, img: null, buf: null
+  };
+  view.resize = function (nw, nh) {
+    if (this.w === nw && this.h === nh) return;
+    this.canvas.width  = nw;
+    this.canvas.height = nh;
+    this.w = nw; this.h = nh;
+    this.img = this.ctx.createImageData(nw, nh);
+    this.buf = this.img.data;
+  };
+  view.resize(w, h);
+  return view;
+}
+
+/* ============================================================
+   5. RASTERIZADOR DE TRIÂNGULO TEXTURIZADO
+      (perspectiva correta + alpha blending + nearest neighbour)
+   ============================================================ */
+function rasterTri(a, b, c, tex, bright, W, H, buf) {
+  let area = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
+  if (area > -1e-9 && area < 1e-9) return;
+
+  if (area < 0) { const t = b; b = c; c = t; area = -area; }
+
+  const minX = Math.max(0, Math.floor(Math.min(a.x, b.x, c.x)));
+  const maxX = Math.min(W - 1, Math.ceil(Math.max(a.x, b.x, c.x)));
+  const minY = Math.max(0, Math.floor(Math.min(a.y, b.y, c.y)));
+  const maxY = Math.min(H - 1, Math.ceil(Math.max(a.y, b.y, c.y)));
+  if (minX > maxX || minY > maxY) return;
+
+  const inv = 1 / area;
+
+  // coeficientes das funções de aresta (barycentric)
+  const e0a = b.y - c.y, e0b = c.x - b.x, e0c = b.x * c.y - c.x * b.y;
+  const e1a = c.y - a.y, e1b = a.x - c.x, e1c = c.x * a.y - a.x * c.y;
+
+  const iz0 = a.iz, iz1 = b.iz, iz2 = c.iz;
+  const uz0 = a.uz, uz1 = b.uz, uz2 = c.uz;
+  const vz0 = a.vz, vz1 = b.vz, vz2 = c.vz;
+
+  for (let y = minY; y <= maxY; y++) {
+    const py = y + 0.5;
+    const rowoff = y * W;
+    for (let x = minX; x <= maxX; x++) {
+      const px = x + 0.5;
+
+      const w0 = e0a * px + e0b * py + e0c;
+      if (w0 < 0) continue;
+      const w1 = e1a * px + e1b * py + e1c;
+      if (w1 < 0) continue;
+      if (w0 + w1 > area) continue;
+
+      const b0 = w0 * inv;
+      const b1 = w1 * inv;
+      const b2 = 1 - b0 - b1;
+
+      const iz  = b0 * iz0 + b1 * iz1 + b2 * iz2;
+      const iiz = 1 / iz;
+      const u = (b0 * uz0 + b1 * uz1 + b2 * uz2) * iiz;
+      const v = (b0 * vz0 + b1 * vz1 + b2 * vz2) * iiz;
+
+      let tx = (u * TEXSZ) | 0; if (tx < 0) tx = 0; else if (tx > 15) tx = 15;
+      let ty = (v * TEXSZ) | 0; if (ty < 0) ty = 0; else if (ty > 15) ty = 15;
+
+      const ti = ((ty << 4) + tx) << 2;
+      const al = tex[ti + 3];
+      if (al === 0) continue;
+
+      const r  = tex[ti]     * bright;
+      const g  = tex[ti + 1] * bright;
+      const bl = tex[ti + 2] * bright;
+
+      const di = (rowoff + x) << 2;
+
+      if (al === 255) {
+        buf[di]     = r;
+        buf[di + 1] = g;
+        buf[di + 2] = bl;
+      } else {
+        const f  = al * (1 / 255);
+        const nf = 1 - f;
+        buf[di]     = r  * f + buf[di]     * nf;
+        buf[di + 1] = g  * f + buf[di + 1] * nf;
+        buf[di + 2] = bl * f + buf[di + 2] * nf;
+      }
+    }
+  }
+}
+
+/* ============================================================
+   6. RENDER DE UM CUBO
+   ============================================================ */
+const BG_TOP = [28, 35, 47];
+const BG_BOT = [13, 17, 23];
+
+function renderCube(view, blockName, yaw, pitch, zoom) {
+  const W = view.w, H = view.h, buf = view.buf;
+
+  /* --- fundo em gradiente --- */
+  let di = 0;
+  for (let y = 0; y < H; y++) {
+    const t = H > 1 ? y / (H - 1) : 0;
+    const r = (BG_TOP[0] + (BG_BOT[0] - BG_TOP[0]) * t) | 0;
+    const g = (BG_TOP[1] + (BG_BOT[1] - BG_TOP[1]) * t) | 0;
+    const b = (BG_TOP[2] + (BG_BOT[2] - BG_TOP[2]) * t) | 0;
+    for (let x = 0; x < W; x++) {
+      buf[di++] = r; buf[di++] = g; buf[di++] = b; buf[di++] = 255;
+    }
+  }
+
+  const S     = Math.min(W, H);
+  const focal = S * 2.75 * zoom;
+
+  const cy = Math.cos(yaw),  sy = Math.sin(yaw);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+
+  // rotação: yaw em Y, depois pitch em X
+  function rot(x, y, z, out) {
+    const x1 = x * cy + z * sy;
+    const z1 = -x * sy + z * cy;
+    out[0] = x1;
+    out[1] = y * cp + z1 * sp;
+    out[2] = -y * sp + z1 * cp;
+  }
+
+  const LIGHT = [-0.35, 0.75, 0.56];   // luz em espaço de câmera (já normalizada)
+
+  const faces = mesh(blockName);
+  const drawList = [];
+  const nv = [0, 0, 0], cv = [0, 0, 0], pv = [0, 0, 0];
+
+  for (let fi = 0; fi < faces.length; fi++) {
+    const face = faces[fi];
+    const vs = face.verts;
+
+    rot(face.normal[0], face.normal[1], face.normal[2], nv);
+
+    let cx = 0, cyy = 0, cz = 0;
+    for (let i = 0; i < 4; i++) { cx += vs[i][0]; cyy += vs[i][1]; cz += vs[i][2]; }
+    cx *= 0.25; cyy *= 0.25; cz *= 0.25;
+    rot(cx, cyy, cz, cv);
+
+    // back-face culling
+    if (nv[0] * cv[0] + nv[1] * cv[1] + nv[2] * (cv[2] - DIST) >= 0) continue;
+
+    // projeção dos 4 cantos
+    const pts = [];
+    let ok = true, dsum = 0;
+    for (let i = 0; i < 4; i++) {
+      rot(vs[i][0], vs[i][1], vs[i][2], pv);
+      const depth = DIST - pv[2];
+      if (depth < 0.1) { ok = false; break; }
+      const iz = 1 / depth;
+      pts.push({
+        x: W * 0.5 + pv[0] * focal * iz,
+        y: H * 0.5 - pv[1] * focal * iz,
+        iz: iz,
+        uz: FACE_UV[i][0] * iz,
+        vz: FACE_UV[i][1] * iz
+      });
+      dsum += depth;
+    }
+    if (!ok) continue;
+
+    const d = nv[0] * LIGHT[0] + nv[1] * LIGHT[1] + nv[2] * LIGHT[2];
+    const bright = 0.45 + 0.55 * (d > 0 ? d : 0);
+
+    drawList.push({ pts: pts, depth: dsum * 0.25, tex: face.tex, bright: bright });
+  }
+
+  // pintor: mais longe primeiro
+  drawList.sort((a, b) => b.depth - a.depth);
+
+  for (let i = 0; i < drawList.length; i++) {
+    const it = drawList[i];
+    const P = it.pts;
+    rasterTri(P[0], P[1], P[2], it.tex, it.bright, W, H, buf);
+    rasterTri(P[0], P[2], P[3], it.tex, it.bright, W, H, buf);
+  }
+
+  view.ctx.putImageData(view.img, 0, 0);
+}
+
+/* ============================================================
+   7. LISTA DE BLOCOS
+   ============================================================ */
+const SUFFIX = /_(top|side|front|bottom|face)$/;
+
+const CURATED = [
+  'grass','dirt','stone','cobblestone','mossy_cobblestone','stone_bricks','cracked_stone_bricks',
+  'sand','sandstone','red_sand','red_sandstone','gravel','clay','bedrock',
+  'oak_log','spruce_log','birch_log','oak_planks','spruce_planks','birch_planks','oak_leaves',
+  'coal_ore','iron_ore','gold_ore','diamond_ore','redstone_ore','lapis_ore','emerald_ore','quartz_ore',
+  'coal_block','iron_block','gold_block','diamond_block','emerald_block','lapis_block','redstone_block','quartz_block',
+  'bricks','nether_bricks','netherrack','soul_sand','glowstone','obsidian','end_stone','purpur_block','prismarine',
+  'snow','ice','water','lava','glass','farmland','cactus','hay','sponge','bookshelf',
+  'crafting_table','furnace','chest','tnt','pumpkin','melon',
+  'wool_white','wool_red','wool_orange','wool_yellow','wool_green','wool_blue','wool_purple','wool_black'
+];
+
+function isValidBlock(n) {
+  if (ALL.has(n)) return true;
+  return ALL.has(n + '_side') || (ALL.has(n + '_top') && ALL.has(n + '_side'));
+}
+
+const BLOCKS = [];
+const seenBlock = new Set();
+function addBlock(n) {
+  if (seenBlock.has(n) || !isValidBlock(n)) return;
+  seenBlock.add(n);
+  BLOCKS.push(n);
+}
+CURATED.forEach(addBlock);
+MCTex.list().forEach(n => { if (!SUFFIX.test(n)) addBlock(n); });
+
+/* ============================================================
+   8. GALERIA
+   ============================================================ */
+const THUMB_SIZE = 128;
+const THUMB_YAW   = -0.62;
+const THUMB_PITCH =  0.42;
+
+const galleryEl = document.getElementById('gallery');
+const countEl   = document.getElementById('count');
+const searchEl  = document.getElementById('search');
+
+const cards = [];
+const cardByName = new Map();
+
+function buildGallery() {
+  const frag = document.createDocumentFragment();
+
+  BLOCKS.forEach((name) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.title = name;
+
+    const canvas = document.createElement('canvas');
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = name;
+
+    card.appendChild(canvas);
+    card.appendChild(label);
+    frag.appendChild(card);
+
+    const entry = {
+      name: name,
+      card: card,
+      canvas: canvas,
+      view: createView(canvas, THUMB_SIZE, THUMB_SIZE),
+      rendered: false,
+      hover: false,
+      phase: Math.random() * Math.PI * 2
+    };
+
+    card.addEventListener('click', () => openViewer(name));
+    card.addEventListener('mouseenter', () => { entry.hover = true; startHover(); });
+    card.addEventListener('mouseleave', () => { entry.hover = false; });
+
+    cards.push(entry);
+    cardByName.set(name, entry);
+  });
+
+  galleryEl.appendChild(frag);
+  countEl.textContent = cards.length + ' blocos';
+  queueInitialRender();
+}
+
+/* ---- render inicial em lotes (não trava a página) ---- */
+let pending = [];
+let pendingRaf = 0;
+
+function queueInitialRender() {
+  pending = cards.slice();
+  if (!pendingRaf) pendingRaf = requestAnimationFrame(flushInitial);
+}
+
+function flushInitial() {
+  pendingRaf = 0;
+  const t0 = performance.now();
+  while (pending.length && performance.now() - t0 < 9) {
+    const e = pending.pop();
+    drawThumb(e, THUMB_YAW, THUMB_PITCH, 1);
+  }
+  if (pending.length) pendingRaf = requestAnimationFrame(flushInitial);
+}
+
+function drawThumb(entry, yaw, pitch, zoom) {
+  renderCube(entry.view, entry.name, yaw, pitch, zoom);
+  entry.rendered = true;
+}
+
+/* ---- animação ao passar o mouse ---- */
+let hoverRaf = 0;
+
+function startHover() {
+  if (hoverRaf) return;
+  hoverRaf = requestAnimationFrame(hoverTick);
+}
+
+function hoverTick() {
+  hoverRaf = 0;
+  let any = false;
+  const t = performance.now() * 0.0016;
+
+  for (let i = 0; i < cards.length; i++) {
+    const e = cards[i];
+    if (!e.hover) continue;
+    any = true;
+    if (e.card.style.display === 'none') continue;
+    const yaw   = THUMB_YAW + Math.sin(t + e.phase) * 0.55;
+    const pitch = THUMB_PITCH + Math.sin(t * 0.7 + e.phase) * 0.12;
+    drawThumb(e, yaw, pitch, 1.06);
+  }
+
+  // restaura o ângulo base dos que saíram do hover
+  for (let i = 0; i < cards.length; i++) {
+    const e = cards[i];
+    if (!e.hover && e.wasHover) {
+      drawThumb(e, THUMB_YAW, THUMB_PITCH, 1);
+      e.wasHover = false;
+    }
+    if (e.hover) e.wasHover = true;
+  }
+
+  if (any) hoverRaf = requestAnimationFrame(hoverTick);
+}
+
+/* ---- filtro ---- */
+searchEl.addEventListener('input', () => {
+  const q = searchEl.value.trim().toLowerCase();
+  let visible = 0;
+  for (let i = 0; i < cards.length; i++) {
+    const e = cards[i];
+    const match = !q || e.name.indexOf(q) !== -1;
+    e.card.style.display = match ? '' : 'none';
+    if (match) visible++;
+  }
+  countEl.textContent = visible + ' / ' + cards.length;
+});
+
+/* ============================================================
+   9. VISUALIZADOR GRANDE
+   ============================================================ */
+const overlay  = document.getElementById('overlay');
+const bigCanvas = document.getElementById('bigCanvas');
+const bigName  = document.getElementById('bigName');
+const bigFaces = document.getElementById('bigFaces');
+const prevBtn  = document.getElementById('prevBtn');
+const nextBtn  = document.getElementById('nextBtn');
+const autoBtn  = document.getElementById('autoBtn');
+const resetBtn = document.getElementById('resetBtn');
+const pngBtn   = document.getElementById('pngBtn');
+const closeBtn = document.getElementById('closeBtn');
+
+const bigView = createView(bigCanvas, 480, 480);
+
+const DEFAULT_YAW   = -0.62;
+const DEFAULT_PITCH =  0.42;
+const DEFAULT_ZOOM  =  1;
+
+let current = null;
+let autoRotate = false;
+let dirty = true;
+let loopRaf = 0;
+
+function bigSize() {
+  const vw = window.innerWidth  * 0.72;
+  const vh = window.innerHeight * 0.62;
+  return Math.round(Math.max(240, Math.min(560, Math.min(vw, vh))));
+}
+
+function resizeBig() {
+  const s = bigSize();
+  bigView.resize(s, s);
+  bigCanvas.style.width  = s + 'px';
+  bigCanvas.style.height = s + 'px';
+  dirty = true;
+}
+
+function showBlock(name) {
+  const keep = current
+    ? { yaw: current.yaw, pitch: current.pitch, zoom: current.zoom }
+    : null;
+
+  current = {
+    name: name,
+    yaw:   keep ? keep.yaw   : DEFAULT_YAW,
+    pitch: keep ? keep.pitch : DEFAULT_PITCH,
+    zoom:  keep ? keep.zoom  : DEFAULT_ZOOM
+  };
+
+  bigName.textContent = name;
+
+  const f = resolveFaces(name);
+  const rows = [
+    ['topo', f.top],
+    ['laterais', f.side],
+    ['base', f.bottom]
+  ];
+  if (f.front) rows.push(['frente', f.front]);
+  bigFaces.innerHTML = rows.map(r => '<b>' + r[0] + '</b> ' + r[1]).join(' &nbsp;·&nbsp; ');
+
+  dirty = true;
+}
+
+function openViewer(name) {
+  overlay.hidden = false;
+  resizeBig();
+  showBlock(name);
+  if (!loopRaf) loopRaf = requestAnimationFrame(loop);
+}
+
+function closeViewer() {
+  overlay.hidden = true;
+  current = null;
+  if (loopRaf) { cancelAnimationFrame(loopRaf); loopRaf = 0; }
+}
+
+function loop() {
+  loopRaf = 0;
+  if (!current) return;
+
+  if (autoRotate) {
+    current.yaw += 0.012;
+    dirty = true;
+  }
+  if (dirty) {
+    renderCube(bigView, current.name, current.yaw, current.pitch, current.zoom);
+    dirty = false;
+  }
+  loopRaf = requestAnimationFrame(loop);
+}
+
+function step(dir) {
+  if (!current) return;
+  let i = BLOCKS.indexOf(current.name);
+  if (i < 0) i = 0;
+  i = (i + dir + BLOCKS.length) % BLOCKS.length;
+  showBlock(BLOCKS[i]);
+}
+
+/* ---- interação: arrastar ---- */
+let dragging = false, lastX = 0, lastY = 0, moved = false;
+
+bigCanvas.addEventListener('pointerdown', (ev) => {
+  if (!current) return;
+  dragging = true;
+  moved = false;
+  lastX = ev.clientX;
+  lastY = ev.clientY;
+  bigCanvas.setPointerCapture(ev.pointerId);
+});
+
+bigCanvas.addEventListener('pointermove', (ev) => {
+  if (!dragging || !current) return;
+  const dx = ev.clientX - lastX;
+  const dy = ev.clientY - lastY;
+  if (Math.abs(dx) + Math.abs(dy) > 1) moved = true;
+  lastX = ev.clientX;
+  lastY = ev.clientY;
+
+  current.yaw   += dx * 0.009;
+  current.pitch += dy * 0.009;
+  current.pitch  = Math.max(-1.45, Math.min(1.45, current.pitch));
+  dirty = true;
+});
+
+function endDrag(ev) {
+  if (!dragging) return;
+  dragging = false;
+  try { bigCanvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+}
+bigCanvas.addEventListener('pointerup', endDrag);
+bigCanvas.addEventListener('pointercancel', endDrag);
+
+/* ---- zoom ---- */
+bigCanvas.addEventListener('wheel', (ev) => {
+  if (!current) return;
+  ev.preventDefault();
+  const factor = Math.exp(-ev.deltaY * 0.0012);
+  current.zoom = Math.max(0.55, Math.min(2.6, current.zoom * factor));
+  dirty = true;
+}, { passive: false });
+
+/* ---- botões ---- */
+prevBtn.addEventListener('click', () => step(-1));
+nextBtn.addEventListener('click', () => step(1));
+closeBtn.addEventListener('click', closeViewer);
+
+resetBtn.addEventListener('click', () => {
+  if (!current) return;
+  current.yaw = DEFAULT_YAW;
+  current.pitch = DEFAULT_PITCH;
+  current.zoom = DEFAULT_ZOOM;
+  dirty = true;
+});
+
+autoBtn.addEventListener('click', () => {
+  autoRotate = !autoRotate;
+  autoBtn.classList.toggle('active', autoRotate);
+  dirty = true;
+});
+
+pngBtn.addEventListener('click', () => {
+  if (!current) return;
+  // renderiza num tamanho fixo bonito antes de exportar
+  const exp = createView(document.createElement('canvas'), 512, 512);
+  renderCube(exp, current.name, current.yaw, current.pitch, current.zoom);
+  const a = document.createElement('a');
+  a.download = 'mc-cube-' + current.name + '.png';
+  a.href = exp.canvas.toDataURL('image/png');
+  a.click();
+});
+
+overlay.addEventListener('click', (ev) => {
+  if (ev.target === overlay) closeViewer();
+});
+
+/* ---- teclado ---- */
+window.addEventListener('keydown', (ev) => {
+  if (!current) return;
+  if (ev.key === 'Escape')      { closeViewer(); }
+  else if (ev.key === 'ArrowLeft')  { ev.preventDefault(); step(-1); }
+  else if (ev.key === 'ArrowRight') { ev.preventDefault(); step(1); }
+  else if (ev.key === ' ')          { ev.preventDefault(); autoRotate = !autoRotate; autoBtn.classList.toggle('active', autoRotate); dirty = true; }
+});
+
+/* ---- resize da janela ---- */
+let resizeTimer = 0;
+window.addEventListener('resize', () => {
+  if (!current) return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { resizeBig(); dirty = true; }, 120);
+});
+
+/* ============================================================
+   10. START
+   ============================================================ */
+buildGallery();
+
+})();
+</script>
+</body>
+</html>

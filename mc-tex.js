@@ -1,0 +1,1107 @@
+/* ============================================================
+   mc-tex.js — Procedural Minecraft-style 16x16 textures (v3)
+   Public API:
+     MCTex.get(name)                        -> HTMLCanvasElement
+     MCTex.getAll()                         -> { name: canvas }
+     MCTex.list()                           -> [name, ...]
+     MCTex.toPNG(name)                      -> data URL
+     MCTex.toPNGBlob(name, cb)              -> Blob via callback
+     MCTex.blockMaterials(name, THREE)      -> 6 materials
+     MCTex.blockMaterials(name, THREE, { faceShade: true })
+     MCTex.generate(generator, seedString)  -> fresh canvas
+   ============================================================ */
+(function (global) {
+  'use strict';
+
+  const SIZE = 16;
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function hashStr(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+
+  function createImage(size) {
+    size = size || SIZE;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(size, size);
+    const d = img.data;
+    const set = (x, y, r, g, b, a) => {
+      x = x | 0; y = y | 0;
+      if (x < 0 || y < 0 || x >= size || y >= size) return;
+      const i = (y * size + x) * 4;
+      d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = a === undefined ? 255 : a;
+    };
+    const bump = (x, y, amt) => {
+      if (x < 0 || y < 0 || x >= size || y >= size) return;
+      const i = (y * size + x) * 4;
+      d[i] += amt; d[i + 1] += amt; d[i + 2] += amt;
+    };
+    const finish = () => { ctx.putImageData(img, 0, 0); return canvas; };
+    return { canvas, ctx, set, bump, finish, size };
+  }
+
+  const shade = (c, amt) => [c[0] + amt, c[1] + amt, c[2] + amt];
+  const hex   = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
+  const pal   = (...hs) => hs.map(hex);
+  const putc  = (t, x, y, c, a) => t.set(x, y, c[0], c[1], c[2], a);
+  const rint  = (r, n) => Math.floor(r() * n);
+  const pick  = (r, arr) => arr[Math.floor(r() * arr.length)];
+  const ramp  = (p, v) => p[Math.max(0, Math.min(p.length - 1, Math.floor(v * p.length)))];
+  const grey  = (g) => [g, g, g];
+  const wrap  = (v) => ((v % SIZE) + SIZE) % SIZE;
+
+  function tileNoise(r, cells) {
+    const g = [];
+    for (let i = 0; i < cells * cells; i++) g.push(r());
+    const sm = (t) => t * t * (3 - 2 * t);
+    return (x, y) => {
+      const fx = (x + 0.5) / SIZE * cells, fy = (y + 0.5) / SIZE * cells;
+      const x0 = Math.floor(fx), y0 = Math.floor(fy);
+      const tx = sm(fx - x0), ty = sm(fy - y0);
+      const X0 = x0 % cells, Y0 = y0 % cells;
+      const X1 = (x0 + 1) % cells, Y1 = (y0 + 1) % cells;
+      const a = g[Y0 * cells + X0], b = g[Y0 * cells + X1];
+      const c = g[Y1 * cells + X0], d = g[Y1 * cells + X1];
+      const top = a + (b - a) * tx, bot = c + (d - c) * tx;
+      return top + (bot - top) * ty;
+    };
+  }
+
+  function fillNoise(t, r, p, o) {
+    o = o || {};
+    const nf = tileNoise(r, o.cells || 4);
+    const cw = o.clump === undefined ? 0.55 : o.clump;
+    const st = o.stretch || 1.4;
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      let v = nf(x, y) * cw + r() * (1 - cw);
+      v = (v - 0.5) * st + 0.5;
+      putc(t, x, y, ramp(p, v), o.alpha);
+    }
+  }
+
+  function scatter(t, r, n, colorFn) {
+    for (let i = 0; i < n; i++) putc(t, rint(r, 16), rint(r, 16), colorFn());
+  }
+
+  function voronoi(r, n) {
+    const cs = SIZE / n, pts = [];
+    for (let gy = 0; gy < n; gy++) for (let gx = 0; gx < n; gx++) {
+      pts.push([(gx + 0.2 + r() * 0.6) * cs, (gy + 0.2 + r() * 0.6) * cs]);
+    }
+    const ids = new Array(SIZE * SIZE);
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
+      let best = 1e9, bi = 0;
+      for (let i = 0; i < pts.length; i++) {
+        let dx = Math.abs(x + 0.5 - pts[i][0]); if (dx > SIZE / 2) dx = SIZE - dx;
+        let dy = Math.abs(y + 0.5 - pts[i][1]); if (dy > SIZE / 2) dy = SIZE - dy;
+        const d = dx * dx + dy * dy;
+        if (d < best) { best = d; bi = i; }
+      }
+      ids[y * SIZE + x] = bi;
+    }
+    const cell = (x, y) => ids[wrap(y) * SIZE + wrap(x)];
+    return { pts, cell };
+  }
+
+  const DIRT_PAL  = pal(0x6c4c33, 0x795639, 0x866043, 0x926b49, 0x9e7753);
+  const GRASS_PAL = pal(0x4f8f30, 0x5e9f38, 0x6fb046, 0x80c155, 0x92d066);
+  const STONE_PAL = pal(0x6b6b6b, 0x767676, 0x7f7f7f, 0x898989, 0x959595);
+  const SAND_PAL  = pal(0xcdbf90, 0xd5c799, 0xdbcfa3, 0xe2d8ae, 0xe9e0b9);
+  const WOOD_PAL  = pal(0x7f6339, 0x8e7144, 0x9c7f4e, 0xa98a56, 0xb8945f);
+
+  function paintDirt(t, r) {
+    fillNoise(t, r, DIRT_PAL, { cells: 4, clump: 0.5, stretch: 1.5 });
+    scatter(t, r, 7, () => pick(r, pal(0x5b4a3c, 0x66554a, 0x594632)));
+    scatter(t, r, 5, () => pick(r, pal(0xa98262, 0xb08a68)));
+  }
+  function paintStone(t, r) {
+    fillNoise(t, r, STONE_PAL, { cells: 4, clump: 0.5, stretch: 1.5 });
+    scatter(t, r, 6, () => grey(96 + rint(r, 10)));
+  }
+  function metalBlock(r, color) {
+    const t = createImage();
+    const P = [shade(color, -22), shade(color, -10), color, shade(color, 12), shade(color, 24)];
+    fillNoise(t, r, P, { cells: 3, clump: 0.5, stretch: 1.3 });
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, 14); t.bump(0, i, 9);
+      t.bump(i, 15, -14); t.bump(15, i, -9);
+    }
+    return t.finish();
+  }
+  function woodTexture(r, P) {
+    const t = createImage();
+    fillNoise(t, r, P, { cells: 4, clump: 0.4, stretch: 1.3 });
+    return t;
+  }
+
+  const T = {};
+
+  /* ---------- BASIC BLOCKS ---------- */
+  T.dirt = function (r) { const t = createImage(); paintDirt(t, r); return t.finish(); };
+
+  T.grass_top = function (r) {
+    const t = createImage();
+    fillNoise(t, r, GRASS_PAL, { cells: 4, clump: 0.45, stretch: 1.5 });
+    scatter(t, r, 8, () => pick(r, pal(0x4a8a2c, 0x56982f)));
+    scatter(t, r, 6, () => pick(r, pal(0x9ad86e, 0x8fcc62)));
+    return t.finish();
+  };
+
+  T.grass_side = function (r) {
+    const t = createImage();
+    paintDirt(t, r);
+    const nf = tileNoise(r, 4);
+    for (let x = 0; x < 16; x++) {
+      const hang = [0, 0, 1, 1, 2, 2, 3][rint(r, 7)];
+      const h = 3 + hang;
+      for (let y = 0; y < h; y++) {
+        const last = (y === h - 1) && hang > 0;
+        let v = nf(x, y) * 0.5 + r() * 0.5;
+        if (last) v *= 0.45;
+        if (last && r() < 0.18) continue;
+        putc(t, x, y, ramp(GRASS_PAL, (v - 0.5) * 1.4 + 0.5));
+      }
+    }
+    return t.finish();
+  };
+
+  T.stone = function (r) { const t = createImage(); paintStone(t, r); return t.finish(); };
+
+  T.cobblestone = function (r) {
+    const t = createImage();
+    const v = voronoi(r, 3);
+    const tone = v.pts.map(() => 112 + r() * 36);
+    const mortar = pal(0x2e2e2e, 0x3a3a3a, 0x484848);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const c = v.cell(x, y);
+      if (v.cell(x + 1, y) !== c || v.cell(x, y + 1) !== c) {
+        putc(t, x, y, pick(r, mortar));
+      } else {
+        let g = tone[c] + (r() * 2 - 1) * 9;
+        if (v.cell(x - 1, y) !== c || v.cell(x, y - 1) !== c) g += 20;
+        g = Math.round(g / 7) * 7;
+        putc(t, x, y, grey(g));
+      }
+    }
+    return t.finish();
+  };
+
+  T.mossy_cobblestone = function (r) {
+    const t = createImage();
+    const v = voronoi(r, 3);
+    const tone = v.pts.map(() => 100 + r() * 30);
+    const moss = pal(0x3f5a2a, 0x4a6b30, 0x557a38, 0x355020);
+    const mortar = pal(0x2e2e2e, 0x3a3a3a, 0x484848);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const c = v.cell(x, y);
+      if (v.cell(x + 1, y) !== c || v.cell(x, y + 1) !== c) {
+        putc(t, x, y, pick(r, mortar));
+      } else if (r() < 0.35) {
+        putc(t, x, y, pick(r, moss));
+      } else {
+        let g = tone[c] + (r() * 2 - 1) * 9;
+        if (v.cell(x - 1, y) !== c || v.cell(x, y - 1) !== c) g += 18;
+        g = Math.round(g / 7) * 7;
+        putc(t, x, y, grey(g));
+      }
+    }
+    return t.finish();
+  };
+
+  T.stone_bricks = function (r) {
+    const t = createImage();
+    const mortar = pal(0x4a4a4a, 0x555555, 0x606060);
+    const brick = pal(0x767676, 0x808080, 0x8a8a8a, 0x939393, 0x9e9e9e);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, pick(r, mortar));
+    for (let row = 0; row < 4; row++) {
+      const y0 = row * 4, off = (row % 2) * 4;
+      for (let bx = -8; bx < 24; bx += 8) {
+        const x0 = bx + off;
+        const tone = r();
+        for (let y = y0; y < y0 + 3; y++) for (let x = x0; x < x0 + 7; x++) {
+          let c = ramp(brick, (tone * 0.55 + r() * 0.45 - 0.5) * 1.4 + 0.5);
+          if (y === y0) c = shade(c, 8);
+          if (y === y0 + 2) c = shade(c, -8);
+          putc(t, x, y, c);
+        }
+      }
+    }
+    return t.finish();
+  };
+
+  T.cracked_stone_bricks = function (r) {
+    const canvas = T.stone_bricks(r);
+    const ctx = canvas.getContext('2d');
+    const img = ctx.getImageData(0, 0, 16, 16);
+    const d = img.data;
+    for (let i = 0; i < 22; i++) {
+      const x = rint(r, 16), y = rint(r, 16);
+      const i2 = (y * 16 + x) * 4;
+      d[i2] -= 40; d[i2 + 1] -= 40; d[i2 + 2] -= 40;
+    }
+    ctx.putImageData(img, 0, 0);
+    return canvas;
+  };
+
+  /* ---------- SAND / SANDSTONE ---------- */
+  T.sand = function (r) {
+    const t = createImage();
+    fillNoise(t, r, SAND_PAL, { cells: 4, clump: 0.4, stretch: 1.5 });
+    scatter(t, r, 6, () => pick(r, pal(0xc2b383, 0xbdae7e)));
+    return t.finish();
+  };
+
+  T.sandstone_side = function (r) {
+    const t = createImage();
+    fillNoise(t, r, SAND_PAL, { cells: 3, clump: 0.35, stretch: 1.1 });
+    for (let x = 0; x < 16; x++) {
+      t.bump(x, 0, 14);
+      if (r() > 0.2) t.bump(x, 4, -24);
+      if (r() > 0.2) t.bump(x, 11, -24);
+      t.bump(x, 14, -12);
+      t.bump(x, 15, -30);
+    }
+    return t.finish();
+  };
+
+  T.sandstone_top = function (r) {
+    const t = createImage();
+    fillNoise(t, r, SAND_PAL, { cells: 3, clump: 0.4, stretch: 1.1 });
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, 9);  t.bump(0, i, 7);
+      t.bump(i, 15, -11); t.bump(15, i, -9);
+    }
+    return t.finish();
+  };
+
+  T.red_sand = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0xb05424, 0xba5e2c, 0xc46a36, 0xce7640, 0xd8824c),
+      { cells: 4, clump: 0.4, stretch: 1.5 });
+    scatter(t, r, 6, () => pick(r, pal(0xa04c1e, 0xa84818)));
+    return t.finish();
+  };
+
+  T.red_sandstone_side = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0xb05424, 0xba5e2c, 0xc46a36, 0xce7640, 0xd8824c),
+      { cells: 3, clump: 0.35, stretch: 1.1 });
+    for (let x = 0; x < 16; x++) {
+      t.bump(x, 0, 14);
+      if (r() > 0.2) t.bump(x, 4, -24);
+      if (r() > 0.2) t.bump(x, 11, -24);
+      t.bump(x, 14, -12);
+      t.bump(x, 15, -30);
+    }
+    return t.finish();
+  };
+
+  T.red_sandstone_top = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0xb05424, 0xba5e2c, 0xc46a36, 0xce7640, 0xd8824c),
+      { cells: 3, clump: 0.4, stretch: 1.1 });
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, 9);  t.bump(0, i, 7);
+      t.bump(i, 15, -11); t.bump(15, i, -9);
+    }
+    return t.finish();
+  };
+
+  /* ---------- GRAVEL / BEDROCK / CLAY ---------- */
+  T.gravel = function (r) {
+    const t = createImage();
+    const v = voronoi(r, 5);
+    const stones = pal(0x8a8582, 0x7a7673, 0x9a9590, 0x6a6663, 0x857f78, 0xa09a92, 0x8b7f70, 0x77706a);
+    const col = v.pts.map(() => pick(r, stones));
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const c = v.cell(x, y);
+      let a = (r() * 2 - 1) * 7;
+      if (v.cell(x + 1, y) !== c || v.cell(x, y + 1) !== c) a -= 26;
+      else if (v.cell(x - 1, y) !== c || v.cell(x, y - 1) !== c) a += 12;
+      putc(t, x, y, shade(col[c], a));
+    }
+    return t.finish();
+  };
+
+  T.bedrock = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x1a1a1a, 0x2a2a2a, 0x3b3b3b, 0x4f4f4f, 0x666666, 0x7c7c7c),
+      { cells: 5, clump: 0.65, stretch: 2.0 });
+    return t.finish();
+  };
+
+  T.clay = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x8a92a6, 0x949cb0, 0x9ea6ba, 0xa8b0c4, 0xb2bace),
+      { cells: 4, clump: 0.5, stretch: 1.3 });
+    return t.finish();
+  };
+
+  /* ---------- WOODS ---------- */
+  function logSide(r, P, dark) {
+    const t = createImage();
+    const tone = []; let xx = 0;
+    while (xx < 16) {
+      const w = 1 + rint(r, 3), v = r();
+      for (let i = 0; i < w && xx < 16; i++) tone[xx++] = v;
+    }
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const v = tone[x] * 0.7 + r() * 0.3;
+      putc(t, x, y, ramp(P, (v - 0.5) * 1.5 + 0.5));
+    }
+    for (let i = 0; i < 6; i++) {
+      const x = rint(r, 16), y0 = rint(r, 16), len = 2 + rint(r, 4);
+      for (let k = 0; k < len; k++) putc(t, x, wrap(y0 + k), dark);
+    }
+    scatter(t, r, 8, () => P[4]);
+    return t.finish();
+  }
+  function logTop(r, rings) {
+    const t = createImage();
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const d = Math.floor(Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)));
+      putc(t, x, y, shade(rings[Math.min(d, rings.length - 1)], (r() * 2 - 1) * 6));
+    }
+    return t.finish();
+  }
+  function planksTexture(r, P, seamCol) {
+    const t = createImage();
+    for (let row = 0; row < 4; row++) {
+      const ry = row * 4;
+      const seam = rint(r, 16);
+      const rowTone = (r() - 0.5) * 0.2;
+      const off = []; let xx = 0;
+      while (xx < 16) {
+        const w = 2 + rint(r, 5), o = (r() - 0.5) * 0.5;
+        for (let i = 0; i < w && xx < 16; i++) off[xx++] = o;
+      }
+      for (let y = ry; y < ry + 4; y++) for (let x = 0; x < 16; x++) {
+        let c;
+        if (y === ry + 3) {
+          c = shade(hex(seamCol), (r() * 2 - 1) * 5);
+        } else {
+          c = ramp(P, 0.5 + rowTone + off[x] + (r() - 0.5) * 0.22);
+          if (y === ry) c = shade(c, 8);
+          if (x === seam) c = shade(c, -24);
+        }
+        putc(t, x, y, c);
+      }
+    }
+    return t.finish();
+  }
+
+  T.oak_log_side  = (r) => logSide(r, pal(0x3b2d19, 0x4e3d23, 0x624b2c, 0x765d36, 0x866c40), 0x3b2d19);
+  T.oak_log_top   = (r) => logTop(r, pal(0x9a7b45, 0xb89a5e, 0xa0804a, 0xb5955a, 0x9a7b45, 0xb08f55, 0x6b5330, 0x594326));
+  T.oak_planks    = (r) => planksTexture(r, WOOD_PAL, 0x6b5231);
+  T.spruce_log_side = (r) => logSide(r, pal(0x2a1e12, 0x362718, 0x483420, 0x5a4228, 0x6a5030), 0x2a1e12);
+  T.spruce_log_top  = (r) => logTop(r, pal(0x6a4e2e, 0x8a6a3e, 0x7a5a34, 0x8e6c40, 0x6a4e2e, 0x8a6838, 0x4a3520, 0x3a2818));
+  T.spruce_planks   = (r) => planksTexture(r, pal(0x5a3e22, 0x6a4a28, 0x7a562e, 0x886236, 0x966e3e), 0x4a3018);
+  T.birch_log_side  = (r) => logSide(r, pal(0xa09a80, 0xb8b298, 0xd0cab0, 0xe0dac0, 0xeee8cc), 0x4a4538);
+  T.birch_log_top   = (r) => logTop(r, pal(0xc0a878, 0xd8c090, 0xccb488, 0xd8c090, 0xc0a878, 0xd0b888, 0x8a7048, 0x6a5538));
+  T.birch_planks    = (r) => planksTexture(r, pal(0xc0a878, 0xd0b888, 0xdcc498, 0xe8d0a8, 0xf0dcb8), 0xa89060);
+
+  T.oak_leaves = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x1e4d14, 0x2c6a1c, 0x3c8527, 0x4ea030, 0x62b83e),
+      { cells: 6, clump: 0.5, stretch: 1.6 });
+    scatter(t, r, 14, () => pick(r, pal(0x153a0e, 0x1a4410)));
+    scatter(t, r, 8,  () => pick(r, pal(0x7ccf4c, 0x70c244)));
+    return t.finish();
+  };
+
+  /* ---------- BRICKS / NETHER ---------- */
+  T.bricks = function (r) {
+    const t = createImage();
+    const mortar = pal(0xaaa49a, 0xb8b2a8, 0xc4beb4);
+    const brick  = pal(0x7e3a2c, 0x8f4535, 0x9b4c3a, 0xa8573f, 0xb5634a);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, pick(r, mortar));
+    const tones = {};
+    for (let row = 0; row < 4; row++) {
+      const y0 = row * 4, off = (row % 2) * 4;
+      for (let bx = -8; bx < 24; bx += 8) {
+        const x0 = bx + off;
+        const key = row + ':' + wrap(x0);
+        if (tones[key] === undefined) tones[key] = r();
+        for (let y = y0; y < y0 + 3; y++) for (let x = x0; x < x0 + 7; x++) {
+          let c = ramp(brick, (tones[key] * 0.55 + r() * 0.45 - 0.5) * 1.5 + 0.5);
+          if (y === y0) c = shade(c, 10);
+          putc(t, x, y, c);
+        }
+      }
+    }
+    return t.finish();
+  };
+
+  T.nether_bricks = function (r) {
+    const t = createImage();
+    const mortar = pal(0x1c0e14, 0x241420, 0x2c1a28);
+    const brick  = pal(0x2e161c, 0x3a1c24, 0x46222c, 0x522a34, 0x5e343c);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, pick(r, mortar));
+    for (let row = 0; row < 4; row++) {
+      const y0 = row * 4, off = (row % 2) * 4;
+      for (let bx = -8; bx < 24; bx += 8) {
+        const x0 = bx + off;
+        const tone = r();
+        for (let y = y0; y < y0 + 3; y++) for (let x = x0; x < x0 + 7; x++) {
+          let c = ramp(brick, (tone * 0.55 + r() * 0.45 - 0.5) * 1.5 + 0.5);
+          if (y === y0) c = shade(c, 10);
+          putc(t, x, y, c);
+        }
+      }
+    }
+    return t.finish();
+  };
+
+  T.netherrack = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x542426, 0x622e2e, 0x70363a, 0x7e3e3c, 0x8c4a46),
+      { cells: 3, clump: 0.5, stretch: 1.6 });
+    scatter(t, r, 8, () => pick(r, pal(0x4c1a1c, 0x431618)));
+    scatter(t, r, 5, () => pick(r, pal(0x9a504c, 0xa05a54)));
+    return t.finish();
+  };
+
+  T.soul_sand = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x3a2820, 0x463226, 0x523c2c, 0x5e4632, 0x6a5038),
+      { cells: 4, clump: 0.5, stretch: 1.4 });
+    for (let i = 0; i < 6; i++) {
+      const x = rint(r, 16), y = rint(r, 16);
+      for (let k = 0; k < 3; k++) putc(t, x + k, y, [0x22, 0x18, 0x10]);
+    }
+    return t.finish();
+  };
+
+  T.glowstone = function (r) {
+    const t = createImage();
+    const P = pal(0x7e5c28, 0xa07834, 0xc49640, 0xe8b452, 0xffde80);
+    const v = voronoi(r, 4);
+    const tone = v.pts.map(() => rint(r, P.length));
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const c = v.cell(x, y);
+      let i = tone[c];
+      if (r() < 0.25) i += r() < 0.5 ? -1 : 1;
+      if ((v.cell(x + 1, y) !== c || v.cell(x, y + 1) !== c) && r() < 0.8) i -= 1;
+      else if ((v.cell(x - 1, y) !== c || v.cell(x, y - 1) !== c) && r() < 0.6) i += 1;
+      putc(t, x, y, P[Math.max(0, Math.min(P.length - 1, i))]);
+    }
+    return t.finish();
+  };
+
+  /* ---------- ORES ---------- */
+  function oreTexture(r, op, count) {
+    const t = createImage();
+    paintStone(t, r);
+    const mask = new Set();
+    for (let k = 0; k < count; k++) {
+      const size = 4 + rint(r, 3);
+      const cells = [[2 + rint(r, 12), 2 + rint(r, 12)]];
+      let guard = 0;
+      while (cells.length < size && guard++ < 40) {
+        const [bx, by] = cells[rint(r, cells.length)];
+        const dir = [[1, 0], [-1, 0], [0, 1], [0, -1]][rint(r, 4)];
+        const nx = bx + dir[0], ny = by + dir[1];
+        if (nx < 1 || ny < 1 || nx > 14 || ny > 14) continue;
+        if (!cells.some((c) => c[0] === nx && c[1] === ny)) cells.push([nx, ny]);
+      }
+      cells.forEach(([x, y]) => mask.add(y * 16 + x));
+    }
+    const has = (x, y) => mask.has(y * 16 + x);
+    mask.forEach((k) => {
+      const x = k % 16, y = (k / 16) | 0;
+      let i = 1;
+      if ((!has(x, y - 1) || !has(x - 1, y)) && r() < 0.65) i = 2;
+      if ((!has(x, y + 1) || !has(x + 1, y)) && r() < 0.65) i = 0;
+      if (r() < 0.12) i = rint(r, 3);
+      putc(t, x, y, op[i]);
+    });
+    return t.finish();
+  }
+  T.coal_ore     = (r) => oreTexture(r, pal(0x101010, 0x242424, 0x3d3d3d), 5);
+  T.iron_ore     = (r) => oreTexture(r, pal(0xa27c5b, 0xd8af93, 0xefd3bd), 5);
+  T.gold_ore     = (r) => oreTexture(r, pal(0xc9a21c, 0xfcee4b, 0xfff9a0), 5);
+  T.diamond_ore  = (r) => oreTexture(r, pal(0x2fb3b8, 0x5decf5, 0xcffcff), 5);
+  T.redstone_ore = (r) => oreTexture(r, pal(0x8a0000, 0xd10f0f, 0xff5a4a), 6);
+  T.lapis_ore    = (r) => oreTexture(r, pal(0x1a3a8e, 0x2f55c8, 0x6f93f0), 5);
+  T.emerald_ore  = (r) => oreTexture(r, pal(0x0f8c3c, 0x17dd62, 0x8bf5b0), 5);
+  T.quartz_ore   = (r) => oreTexture(r, pal(0x9a8a78, 0xd0c0a8, 0xf0e4c8), 5);
+
+  /* ---------- MINERAL BLOCKS ---------- */
+  T.iron_block     = (r) => metalBlock(r, [220, 220, 220]);
+  T.gold_block     = (r) => metalBlock(r, [245, 200, 45]);
+  T.diamond_block  = (r) => metalBlock(r, [95, 235, 245]);
+  T.emerald_block  = (r) => metalBlock(r, [40, 200, 100]);
+  T.coal_block     = (r) => metalBlock(r, [24, 24, 24]);
+  T.lapis_block    = (r) => metalBlock(r, [30, 60, 150]);
+  T.redstone_block = (r) => metalBlock(r, [180, 24, 24]);
+  T.quartz_block   = (r) => metalBlock(r, [235, 230, 220]);
+
+  /* ---------- OBSIDIAN / END ---------- */
+  T.obsidian = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x0c0a14, 0x120f1e, 0x1a1530, 0x251c46, 0x34265f),
+      { cells: 4, clump: 0.5, stretch: 1.8 });
+    scatter(t, r, 5, () => pick(r, pal(0x6a48a8, 0x553a8c)));
+    return t.finish();
+  };
+
+  T.end_stone = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0xcfcca0, 0xdad7a8, 0xe4e0b0, 0xeeeaba, 0xf6f2c4),
+      { cells: 4, clump: 0.5, stretch: 1.3 });
+    scatter(t, r, 8, () => pick(r, pal(0xb8b490, 0xa8a480)));
+    return t.finish();
+  };
+
+  T.purpur_block = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x8a5c92, 0x9a6aa0, 0xa878ae, 0xb68abc, 0xc49aca),
+      { cells: 4, clump: 0.5, stretch: 1.3 });
+    scatter(t, r, 4, () => pick(r, pal(0xd0a8d6, 0xbe96c4)));
+    return t.finish();
+  };
+
+  T.prismarine = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x2e6a60, 0x387a6e, 0x428a7c, 0x4e9a8a, 0x5aaa98),
+      { cells: 5, clump: 0.5, stretch: 1.4 });
+    scatter(t, r, 6, () => pick(r, pal(0x6ab8a6, 0x7cc4b2)));
+    return t.finish();
+  };
+
+  /* ---------- SNOW / ICE / WATER / GLASS ---------- */
+  T.snow = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0xdde9ef, 0xe9f3f6, 0xf4fafb, 0xfdffff, 0xffffff),
+      { cells: 4, clump: 0.3, stretch: 1.2 });
+    return t.finish();
+  };
+
+  T.ice = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x78a2ea, 0x86b0f2, 0x93bcf8, 0xa6caff, 0xbfdcff),
+      { cells: 3, clump: 0.6, stretch: 1.4 });
+    for (let i = 0; i < 4; i++) {
+      let x = rint(r, 16), y = rint(r, 16);
+      const len = 3 + rint(r, 3);
+      for (let s = 0; s < len; s++) { putc(t, x, y, [214, 232, 255]); x++; y++; }
+    }
+    return t.finish();
+  };
+
+  T.water = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x2c5fd0, 0x3568d8, 0x3f76e4, 0x4d85ee, 0x6096f2),
+      { cells: 4, clump: 0.6, stretch: 1.5, alpha: 190 });
+    return t.finish();
+  };
+
+  T.lava = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x8a1e00, 0xc43400, 0xe85810, 0xff8a30, 0xffc060),
+      { cells: 3, clump: 0.6, stretch: 1.8 });
+    scatter(t, r, 6, () => pick(r, pal(0xffe090, 0xffd070)));
+    return t.finish();
+  };
+
+  T.glass = function (r) {
+    const t = createImage();
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) t.set(x, y, 0, 0, 0, 0);
+    const frame = pal(0xd5e8ee, 0xc4dde6, 0xe4f1f5);
+    for (let i = 0; i < 16; i++) {
+      putc(t, i, 0,  pick(r, frame), 235);
+      putc(t, i, 15, pick(r, frame), 235);
+      putc(t, 0, i,  pick(r, frame), 235);
+      putc(t, 15, i, pick(r, frame), 235);
+    }
+    [[2, 5], [3, 4], [4, 3], [5, 2]].forEach(([x, y]) => t.set(x, y, 255, 255, 255, 230));
+    [[2, 8], [3, 7]].forEach(([x, y]) => t.set(x, y, 245, 250, 255, 205));
+    [[12, 13], [13, 12]].forEach(([x, y]) => t.set(x, y, 215, 235, 250, 215));
+    return t.finish();
+  };
+
+  /* ---------- PLANTS / CROPS ---------- */
+  T.farmland = function (r) {
+    const t = createImage();
+    paintDirt(t, r);
+    for (let x = 0; x < 16; x++) {
+      t.bump(x, 3, -30);
+      t.bump(x, 8, -30);
+      t.bump(x, 13, -30);
+    }
+    return t.finish();
+  };
+
+  T.cactus_side = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x0e4a1e, 0x155c28, 0x1c6e34, 0x248040, 0x2c924c),
+      { cells: 3, clump: 0.5, stretch: 1.4 });
+    for (let y = 0; y < 16; y++) {
+      t.bump(0, y, -40); t.bump(1, y, -10);
+      t.bump(15, y, -40); t.bump(14, y, -10);
+    }
+    for (let i = 0; i < 8; i++) {
+      const y = rint(r, 16);
+      putc(t, 4 + rint(r, 8), y, [230, 240, 190]);
+    }
+    return t.finish();
+  };
+
+  T.cactus_top = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x1c6e34, 0x248040, 0x2c924c, 0x3aa258, 0x4ab264),
+      { cells: 3, clump: 0.4, stretch: 1.3 });
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, -40); t.bump(i, 15, -40);
+      t.bump(0, i, -40); t.bump(15, i, -40);
+    }
+    return t.finish();
+  };
+
+  T.hay_side = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0xb08820, 0xc89a28, 0xd8ac30, 0xe6bc3c, 0xf0cc48),
+      { cells: 4, clump: 0.4, stretch: 1.3 });
+    for (let x = 0; x < 16; x += 5) {
+      for (let y = 0; y < 16; y++) t.bump(x, y, -35);
+    }
+    return t.finish();
+  };
+
+  T.hay_top = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0xa88020, 0xc09028, 0xd8a830, 0xe8b840, 0xf0c850),
+      { cells: 3, clump: 0.4, stretch: 1.3 });
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if ((x + y) % 3 === 0) t.bump(x, y, -25);
+    }
+    return t.finish();
+  };
+
+  T.sponge = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0xb0a828, 0xbdb630, 0xc8c038, 0xd4cc40, 0xdfd748),
+      { cells: 4, clump: 0.5, stretch: 1.4 });
+    for (let i = 0; i < 30; i++) {
+      const x = rint(r, 16), y = rint(r, 16);
+      putc(t, x, y, [90, 80, 20]);
+    }
+    return t.finish();
+  };
+
+  /* ---------- FUNCTIONAL BLOCKS ---------- */
+  T.crafting_table_top = function (r) {
+    const t = createImage();
+    fillNoise(t, r, WOOD_PAL, { cells: 4, clump: 0.4, stretch: 1.2 });
+    for (let i = 2; i < 14; i++) {
+      t.bump(i, 5, -25);
+      t.bump(i, 10, -25);
+      t.bump(5, i, -25);
+      t.bump(10, i, -25);
+    }
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, 12);
+      t.bump(i, 15, -12);
+      t.bump(0, i, 8);
+      t.bump(15, i, -8);
+    }
+    return t.finish();
+  };
+
+  T.crafting_table_side = function (r) {
+    const t = createImage();
+    fillNoise(t, r, WOOD_PAL, { cells: 4, clump: 0.4, stretch: 1.2 });
+    for (let x = 0; x < 16; x++) {
+      t.bump(x, 0, 10);
+      t.bump(x, 15, -15);
+      t.bump(x, 5, -18);
+      t.bump(x, 10, -18);
+    }
+    return t.finish();
+  };
+
+  T.crafting_table_front = function (r) {
+    const t = createImage();
+    fillNoise(t, r, WOOD_PAL, { cells: 4, clump: 0.4, stretch: 1.2 });
+    for (let x = 0; x < 16; x++) {
+      t.bump(x, 0, 10);
+      t.bump(x, 15, -15);
+      t.bump(x, 8, -18);
+    }
+    const dark = [40, 26, 12];
+    // saw
+    for (let i = 0; i < 6; i++) putc(t, 2 + i, 3 + i, dark);
+    for (let i = 0; i < 4; i++) putc(t, 2 + i, 3 + i, [70, 50, 30]);
+    // hammer
+    putc(t, 10, 3, dark); putc(t, 11, 3, dark); putc(t, 10, 4, dark); putc(t, 11, 4, dark);
+    for (let y = 5; y < 11; y++) putc(t, 10, y, dark);
+    return t.finish();
+  };
+
+  T.furnace_side = function (r) {
+    const t = createImage();
+    paintStone(t, r);
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, 15);
+      t.bump(i, 15, -15);
+      t.bump(0, i, 10);
+      t.bump(15, i, -10);
+    }
+    return t.finish();
+  };
+
+  T.furnace_top = function (r) {
+    const t = createImage();
+    paintStone(t, r);
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, 15);
+      t.bump(0, i, 12);
+      t.bump(i, 15, -12);
+      t.bump(15, i, -8);
+    }
+    for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) t.bump(x, y, -20);
+    return t.finish();
+  };
+
+  T.furnace_front = function (r) {
+    const t = createImage();
+    paintStone(t, r);
+    const dark = pal(0x101010, 0x1a1a1a, 0x242424, 0x2e2e2e);
+    for (let y = 5; y < 12; y++) for (let x = 3; x < 13; x++) putc(t, x, y, pick(r, dark));
+    for (let x = 2; x < 14; x++) t.bump(x, 4, -20);
+    for (let x = 4; x < 12; x += 2) for (let y = 6; y < 11; y++) t.bump(x, y, 24);
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, 12);
+      t.bump(i, 15, -15);
+    }
+    return t.finish();
+  };
+
+  T.bookshelf = function (r) {
+    const t = createImage();
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, ramp(WOOD_PAL, r()));
+    for (let x = 0; x < 16; x++) {
+      for (let y = 0; y < 2; y++) putc(t, x, y, shade(hex(0x7f6339), 10 + r() * 10));
+      for (let y = 14; y < 16; y++) putc(t, x, y, shade(hex(0x7f6339), -10 + r() * 10));
+    }
+    const bookColors = pal(0xa5342a, 0x2a4a8a, 0x2a7a3a, 0x8a7a2a, 0x6a3a8a, 0x8a5a2a, 0x2a6a7a);
+    for (let shelf = 0; shelf < 2; shelf++) {
+      const y0 = 3 + shelf * 6;
+      let x = 1;
+      while (x < 15) {
+        const w = 1 + rint(r, 2);
+        const c = pick(r, bookColors);
+        for (let i = 0; i < w && x < 15; i++, x++) {
+          for (let y = y0; y < y0 + 5; y++) {
+            let col = c;
+            if (y === y0) col = shade(c, 15);
+            if (y === y0 + 4) col = shade(c, -15);
+            putc(t, x, y, shade(col, (r() * 2 - 1) * 8));
+          }
+        }
+      }
+      for (let xx = 1; xx < 15; xx++) t.bump(xx, y0 + 5, -20);
+    }
+    return t.finish();
+  };
+
+  T.tnt_side = function (r) {
+    const t = createImage();
+    const red = pal(0xa03028, 0xb53830, 0xc54038, 0xd04840, 0xdc5048);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, pick(r, red));
+    for (let x = 0; x < 16; x++) for (let y = 5; y < 11; y++)
+      putc(t, x, y, shade(hex(0xeaeaea), (r() * 2 - 1) * 10));
+    const dark = [30, 30, 30];
+    const strokes = [
+      [2, 6], [3, 6], [4, 6], [3, 7], [3, 8], [3, 9],
+      [6, 6], [6, 7], [6, 8], [6, 9], [7, 7], [8, 8], [9, 6], [9, 7], [9, 8], [9, 9],
+      [11, 6], [12, 6], [13, 6], [12, 7], [12, 8], [12, 9],
+    ];
+    strokes.forEach(([x, y]) => putc(t, x, y, dark));
+    return t.finish();
+  };
+
+  T.tnt_top = function (r) {
+    const t = createImage();
+    const red = pal(0xa03028, 0xb53830, 0xc54038, 0xd04840, 0xdc5048);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, pick(r, red));
+    const fuse = pal(0x2a2a2a, 0x3a3a3a, 0x4a4a4a);
+    for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) putc(t, x, y, pick(r, fuse));
+    return t.finish();
+  };
+
+  T.tnt_bottom = function (r) {
+    const t = createImage();
+    const red = pal(0x8a2820, 0x962e26, 0xa2342c, 0xae3a32);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, pick(r, red));
+    return t.finish();
+  };
+
+  function chestBody(r) {
+    const t = createImage();
+    const P = pal(0x8a5a2a, 0x9c6a34, 0xae783e, 0xbf8648, 0xd09654);
+    fillNoise(t, r, P, { cells: 4, clump: 0.4, stretch: 1.3 });
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, -20); t.bump(i, 15, -20);
+      t.bump(0, i, -15); t.bump(15, i, -15);
+    }
+    for (let x = 0; x < 16; x++) t.bump(x, 7, -25);
+    return t;
+  }
+  T.chest_side = function (r) { const t = chestBody(r); return t.finish(); };
+  T.chest_top = function (r) {
+    const t = createImage();
+    const P = pal(0x8a5a2a, 0x9c6a34, 0xae783e, 0xbf8648, 0xd09654);
+    fillNoise(t, r, P, { cells: 4, clump: 0.4, stretch: 1.3 });
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, -15); t.bump(i, 15, -15);
+      t.bump(0, i, -15); t.bump(15, i, -15);
+    }
+    return t.finish();
+  };
+  T.chest_front = function (r) {
+    const t = chestBody(r);
+    const lock = pal(0x3a3a3a, 0x505050, 0x6a6a6a);
+    for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) putc(t, x, y, pick(r, lock));
+    for (let x = 7; x < 9; x++) putc(t, x, 7, [40, 40, 40]);
+    return t.finish();
+  };
+
+  /* ---------- PUMPKIN / MELON ---------- */
+  T.pumpkin_side = function (r) {
+    const t = createImage();
+    const P = pal(0xb05010, 0xc0601a, 0xd07020, 0xdc8028, 0xe89030);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, ramp(P, r()));
+    for (let x = 0; x < 16; x += 3) for (let y = 0; y < 16; y++) t.bump(x, y, -30);
+    for (let x = 1; x < 16; x += 3) for (let y = 0; y < 16; y++) t.bump(x, y, 15);
+    return t.finish();
+  };
+
+  T.pumpkin_top = function (r) {
+    const t = createImage();
+    const P = pal(0xb05010, 0xc0601a, 0xd07020, 0xdc8028, 0xe89030);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, ramp(P, r()));
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+      if (Math.floor(d) % 2 === 0) t.bump(x, y, -25);
+    }
+    const stem = pal(0x6a4a1a, 0x7a5620);
+    for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) putc(t, x, y, pick(r, stem));
+    return t.finish();
+  };
+
+  T.pumpkin_face = function (r) {
+    const t = createImage();
+    const P = pal(0xb05010, 0xc0601a, 0xd07020, 0xdc8028, 0xe89030);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, ramp(P, r()));
+    for (let x = 0; x < 16; x += 3) for (let y = 0; y < 16; y++) t.bump(x, y, -30);
+    for (let x = 1; x < 16; x += 3) for (let y = 0; y < 16; y++) t.bump(x, y, 15);
+    const dark = [30, 15, 5];
+    [[3, 5], [4, 5], [3, 6], [4, 6]].forEach(([x, y]) => putc(t, x, y, dark));
+    [[11, 5], [12, 5], [11, 6], [12, 6]].forEach(([x, y]) => putc(t, x, y, dark));
+    for (let x = 4; x < 12; x++) putc(t, x, 10, dark);
+    [[5, 9], [6, 9], [9, 9], [10, 9], [6, 11], [9, 11]].forEach(([x, y]) => putc(t, x, y, dark));
+    return t.finish();
+  };
+
+  T.melon_side = function (r) {
+    const t = createImage();
+    const P = pal(0x4a6a1a, 0x5a7c22, 0x6a8e2a, 0x7aa032, 0x8ab03a);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, ramp(P, r()));
+    for (let x = 2; x < 16; x += 5) for (let y = 0; y < 16; y++) t.bump(x, y, -30);
+    for (let x = 0; x < 16; x += 5) for (let y = 0; y < 16; y++) t.bump(x, y, 20);
+    scatter(t, r, 10, () => [60, 90, 20]);
+    return t.finish();
+  };
+
+  T.melon_top = function (r) {
+    const t = createImage();
+    const P = pal(0x4a6a1a, 0x5a7c22, 0x6a8e2a, 0x7aa032, 0x8ab03a);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, ramp(P, r()));
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if ((x + y) % 4 === 0) t.bump(x, y, -22);
+    }
+    return t.finish();
+  };
+
+  /* ---------- WOOL ---------- */
+  function woolTexture(r, color) {
+    const t = createImage();
+    const p = [shade(color, -28), shade(color, -13), color, shade(color, 10), shade(color, 20)];
+    fillNoise(t, r, p, { cells: 8, clump: 0.35, stretch: 1.5 });
+    return t.finish();
+  }
+  T.wool_white  = (r) => woolTexture(r, [233, 236, 236]);
+  T.wool_red    = (r) => woolTexture(r, [165, 42, 36]);
+  T.wool_blue   = (r) => woolTexture(r, [56, 72, 170]);
+  T.wool_yellow = (r) => woolTexture(r, [248, 197, 39]);
+  T.wool_green  = (r) => woolTexture(r, [84, 114, 28]);
+  T.wool_black  = (r) => woolTexture(r, [28, 28, 33]);
+  T.wool_orange = (r) => woolTexture(r, [240, 118, 19]);
+  T.wool_purple = (r) => woolTexture(r, [137, 50, 184]);
+
+  /* ============================================================
+     GENERATION (deterministic seed per name)
+     ============================================================ */
+  const textures = {};
+  Object.keys(T).forEach((name) => {
+    const rand = mulberry32(hashStr('mctex:' + name));
+    textures[name] = T[name](rand);
+  });
+
+  /* ============================================================
+     PUBLIC API
+     ============================================================ */
+  const ALIASES = {
+    grass:      'grass_top',
+    log:        'oak_log_side',
+    oak_log:    'oak_log_side',
+    spruce_log: 'spruce_log_side',
+    birch_log:  'birch_log_side',
+    planks:     'oak_planks',
+    oak_planks: 'oak_planks',
+    leaves:     'oak_leaves',
+    sandstone:  'sandstone_side',
+    red_sandstone: 'red_sandstone_side',
+    brick:      'bricks',
+    netherrack_bricks: 'nether_bricks',
+  };
+
+  function get(name) {
+    const key = ALIASES[name] || name;
+    return textures[key] || textures.dirt;
+  }
+
+  const SPECIAL_FACES = {
+    grass:     { top: 'grass_top',        bottom: 'dirt',              side: 'grass_side' },
+    oak_log:   { top: 'oak_log_top',      bottom: 'oak_log_top',       side: 'oak_log_side' },
+    spruce_log:{ top: 'spruce_log_top',   bottom: 'spruce_log_top',    side: 'spruce_log_side' },
+    birch_log: { top: 'birch_log_top',    bottom: 'birch_log_top',     side: 'birch_log_side' },
+    sandstone: { top: 'sandstone_top',    bottom: 'sandstone_top',     side: 'sandstone_side' },
+    red_sandstone: { top: 'red_sandstone_top', bottom: 'red_sandstone_top', side: 'red_sandstone_side' },
+    crafting_table: { top: 'crafting_table_top', bottom: 'oak_planks', side: 'crafting_table_side', front: 'crafting_table_front' },
+    furnace:   { top: 'furnace_top',      bottom: 'furnace_top',       side: 'furnace_side', front: 'furnace_front' },
+    chest:     { top: 'chest_top',        bottom: 'chest_top',         side: 'chest_side',   front: 'chest_front' },
+    pumpkin:   { top: 'pumpkin_top',      bottom: 'pumpkin_top',       side: 'pumpkin_side', front: 'pumpkin_face' },
+    melon:     { top: 'melon_top',        bottom: 'melon_top',         side: 'melon_side' },
+    tnt:       { top: 'tnt_top',          bottom: 'tnt_bottom',        side: 'tnt_side' },
+    hay:       { top: 'hay_top',          bottom: 'hay_top',           side: 'hay_side' },
+    cactus:    { top: 'cactus_top',       bottom: 'cactus_top',        side: 'cactus_side' },
+  };
+  const FACE_ALIASES = {
+    log: 'oak_log',
+    planks: 'oak_planks',
+    brick: 'bricks',
+  };
+
+  function resolveFaces(name) {
+    const fa = FACE_ALIASES[name] || name;
+    const key = ALIASES[name] || name;
+    const s = SPECIAL_FACES[fa] || SPECIAL_FACES[key];
+    if (s) return s;
+    return { top: key, bottom: key, side: key };
+  }
+
+  const texCache = new Map();
+  const matCache = new Map();
+
+  function getTexture(texName, THREE) {
+    if (texCache.has(texName)) return texCache.get(texName);
+    const tex = new THREE.CanvasTexture(textures[texName] || textures.dirt);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    texCache.set(texName, tex);
+    return tex;
+  }
+
+  function getMaterial(texName, THREE, bright) {
+    bright = bright === undefined ? 1 : bright;
+    const key = texName + '@' + bright;
+    if (matCache.has(key)) return matCache.get(key);
+
+    const opts = { map: getTexture(texName, THREE) };
+    if (bright !== 1) opts.color = new THREE.Color(bright, bright, bright);
+    if (texName === 'glass') {
+      opts.alphaTest = 0.5;
+    } else if (texName === 'water') {
+      opts.transparent = true;
+    }
+    const mat = new THREE.MeshLambertMaterial(opts);
+    matCache.set(key, mat);
+    return mat;
+  }
+
+  const FACE_BRIGHT = { top: 1.0, bottom: 0.5, x: 0.6, z: 0.8 };
+  const FLAT_BRIGHT = { top: 1, bottom: 1, x: 1, z: 1 };
+
+  function blockMaterials(name, THREE, opts) {
+    const f = resolveFaces(name);
+    const b = (opts && opts.faceShade) ? FACE_BRIGHT : FLAT_BRIGHT;
+    const front = f.front;
+    const sideM = getMaterial(f.side, THREE, b.z);
+    const sideX = getMaterial(front || f.side, THREE, b.x);
+    const mTop    = getMaterial(f.top,    THREE, b.top);
+    const mBottom = getMaterial(f.bottom, THREE, b.bottom);
+    // [ +X, -X, +Y(top), -Y(bottom), +Z, -Z ]
+    // Faces com "front" customizado: -Z recebe o front, +Z recebe side
+    if (front) {
+      return [sideM, sideM, mTop, mBottom, sideM, getMaterial(front, THREE, b.z)];
+    }
+    return [sideX, sideX, mTop, mBottom, sideM, sideM];
+  }
+
+  /* ---------- PNG export ---------- */
+  function toPNG(name) {
+    const key = ALIASES[name] || name;
+    const canvas = textures[key] || textures.dirt;
+    return canvas.toDataURL('image/png');
+  }
+
+  function toPNGBlob(name, cb) {
+    const key = ALIASES[name] || name;
+    const canvas = textures[key] || textures.dirt;
+    if (canvas.toBlob) {
+      canvas.toBlob((blob) => cb(blob, key), 'image/png');
+    } else {
+      // Fallback: parse data URL manually
+      const data = canvas.toDataURL('image/png');
+      const bin = atob(data.split(',')[1]);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      cb(new Blob([arr], { type: 'image/png' }), key);
+    }
+  }
+
+  function getAll() {
+    return Object.assign({}, textures);
+  }
+
+  global.MCTex = {
+    SIZE,
+    textures,
+    get,
+    getAll,
+    toPNG,
+    toPNGBlob,
+    blockMaterials,
+    list: () => Object.keys(textures),
+    generate: (generatorName, seedString) => {
+      const fn = T[generatorName];
+      if (!fn) throw new Error('Unknown generator: ' + generatorName);
+      return fn(mulberry32(hashStr(String(seedString || generatorName))));
+    },
+  };
+})(typeof window !== 'undefined' ? window : globalThis);

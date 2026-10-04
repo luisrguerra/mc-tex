@@ -811,17 +811,33 @@
       t.bump(i, 15, -12);
       t.bump(15, i, -8);
     }
-    for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) t.bump(x, y, -20);
+    // dark circular opening in the center (like the reference)
+    const dark = pal(0x141414, 0x1e1e1e, 0x282828, 0x323232);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const dx = x - 7.5, dy = y - 7.5;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 3.1) putc(t, x, y, pick(r, dark));
+      else if (d < 4.1) t.bump(x, y, -20);
+      else if (d < 4.9) t.bump(x, y, 10);
+    }
     return t.finish();
   };
 
   T.furnace_front = function (r) {
     const t = createImage();
     paintStone(t, r);
-    const dark = pal(0x101010, 0x1a1a1a, 0x242424, 0x2e2e2e);
+    const dark  = pal(0x101010, 0x1a1a1a, 0x242424, 0x2e2e2e);
+    const frame = pal(0x9a9a9a, 0xa6a6a6, 0xb2b2b2, 0xbebebe);
+    // light gray frame around the mouth
+    for (let y = 4; y < 13; y++) for (let x = 2; x < 14; x++) putc(t, x, y, pick(r, frame));
+    // dark mouth interior
     for (let y = 5; y < 12; y++) for (let x = 3; x < 13; x++) putc(t, x, y, pick(r, dark));
-    for (let x = 2; x < 14; x++) t.bump(x, 4, -20);
-    for (let x = 4; x < 12; x += 2) for (let y = 6; y < 11; y++) t.bump(x, y, 24);
+    // lighter bottom lip band
+    for (let x = 2; x < 14; x++) for (let y = 12; y < 14; y++) putc(t, x, y, shade(pick(r, frame), 18));
+    // shading: top of frame darker, inner mouth highlights
+    for (let x = 2; x < 14; x++) t.bump(x, 4, -26);
+    for (let x = 2; x < 14; x++) t.bump(x, 13, -16);
+    for (let x = 4; x < 12; x += 2) for (let y = 6; y < 11; y++) t.bump(x, y, 26);
     for (let i = 0; i < 16; i++) {
       t.bump(i, 0, 12);
       t.bump(i, 15, -15);
@@ -831,29 +847,124 @@
 
   T.bookshelf = function (r) {
     const t = createImage();
-    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) putc(t, x, y, ramp(WOOD_PAL, r()));
-    for (let x = 0; x < 16; x++) {
-      for (let y = 0; y < 2; y++) putc(t, x, y, shade(hex(0x7f6339), 10 + r() * 10));
-      for (let y = 14; y < 16; y++) putc(t, x, y, shade(hex(0x7f6339), -10 + r() * 10));
+
+    // --- Oak plank frame bands (top, middle, bottom) ---
+    const PLANK = pal(0x9c7f4e, 0xa98a56, 0xb8945f, 0xc09a64, 0xc8a26c);
+    const PLANK_SEAM = [0x6b5231, 0x5c4527];
+    function plankBand(y0, y1) {
+      for (let y = y0; y <= y1; y++) for (let x = 0; x < 16; x++) {
+        let c = ramp(PLANK, 0.5 + (r() - 0.5) * 0.5);
+        if (y === y0) c = shade(c, 14);          // top highlight
+        if (y === y1) c = shade(c, -20);         // bottom shadow
+        putc(t, x, y, c);
+      }
+      // horizontal grain streaks
+      for (let y = y0; y <= y1; y++) if (r() < 0.5)
+        for (let x = 0; x < 16; x++) t.bump(x, y, -6);
+      // vertical plank seams
+      [0, 5, 10, 15].forEach((sx) => {
+        for (let y = y0; y <= y1; y++) { putc(t, sx, y, pick(r, PLANK_SEAM)); if (sx + 1 < 16) t.bump(sx + 1, y, -14); }
+      });
     }
-    const bookColors = pal(0xa5342a, 0x2a4a8a, 0x2a7a3a, 0x8a7a2a, 0x6a3a8a, 0x8a5a2a, 0x2a6a7a);
-    for (let shelf = 0; shelf < 2; shelf++) {
-      const y0 = 3 + shelf * 6;
-      let x = 1;
-      while (x < 15) {
-        const w = 1 + rint(r, 2);
+    plankBand(0, 1);
+    plankBand(7, 8);
+    plankBand(14, 15);
+
+    // --- Books ---
+    // Rich, saturated spine colors matching the reference palette
+    const bookColors = pal(
+      0xb03a2e, 0x8f2a22, 0x2f4fa0, 0x1e3a72, 0x2f8a3a, 0x1e5c2a,
+      0xc9a227, 0x8a7a2a, 0x7a3a9a, 0x4a2a6a, 0xa85a2a, 0x6a4420,
+      0x2f7a8a, 0x1e4a5a, 0xc04a2a, 0x3a7a2a, 0x9a2a5a, 0x5a2a3a
+    );
+    const PAGE = pal(0xe8e0c8, 0xf0e8d0, 0xdcd4bc, 0xf4ecd8, 0xe0d8c0);
+    const SHELF_SHADOW = [0x2a1c0c];
+
+    function bookRow(y0, y1) {
+      // dark recessed back behind the books
+      for (let y = y0; y <= y1; y++) for (let x = 0; x < 16; x++)
+        putc(t, x, y, shade(hex(0x3a2a16), (r() * 2 - 1) * 8));
+
+      let x = 2;
+      while (x < 14) {
+        const w = 1 + rint(r, 3);                 // book width 1-3
         const c = pick(r, bookColors);
-        for (let i = 0; i < w && x < 15; i++, x++) {
-          for (let y = y0; y < y0 + 5; y++) {
-            let col = c;
-            if (y === y0) col = shade(c, 15);
-            if (y === y0 + 4) col = shade(c, -15);
-            putc(t, x, y, shade(col, (r() * 2 - 1) * 8));
+        const pageH = 1 + (r() < 0.5 ? 1 : 0);    // cream page edge 1-2px tall
+        const topGap = r() < 0.25 ? 1 : 0;        // some books sit slightly lower
+        const by0 = y0 + topGap;
+        const hasBand = r() < 0.45;               // decorative spine band
+        const bandY = by0 + pageH + 1 + rint(r, Math.max(1, (y1 - by0 - pageH - 1)));
+        for (let i = 0; i < w && x < 14; i++, x++) {
+          for (let y = by0; y <= y1; y++) {
+            let col;
+            if (y < by0 + pageH) {
+              // cream page edges at the top of the book
+              col = pick(r, PAGE);
+              if (y === by0 + pageH - 1) col = shade(col, -18);
+            } else {
+              col = c;
+              // spine shading
+              if (y === y1) col = shade(col, -26);
+              if (i === 0) col = shade(col, 14);      // left edge highlight
+              if (i === w - 1) col = shade(col, -16); // right edge shadow
+              // subtle vertical spine ridge on wider books
+              if (w > 1 && i === (w >> 1)) col = shade(col, 6);
+              // decorative band / label
+              if (hasBand && (y === bandY || y === bandY + 1))
+                col = shade(c, 36 + r() * 22);
+            }
+            putc(t, x, y, shade(col, (r() * 2 - 1) * 6));
           }
         }
+        // dark gap between books
+        if (x < 14) { for (let y = y0; y <= y1; y++) putc(t, x, y, shade(c, -55)); x++; }
       }
-      for (let xx = 1; xx < 15; xx++) t.bump(xx, y0 + 5, -20);
+      // shadow cast under the shelf row
+      for (let xx = 0; xx < 16; xx++) t.bump(xx, y1, -16);
+      for (let xx = 0; xx < 16; xx++) putc(t, xx, y1, shade(hex(0x2a1c0c), (r() * 2 - 1) * 6));
     }
+    bookRow(2, 6);
+    bookRow(9, 13);
+
+    // --- Vertical wooden columns on the left and right edges ---
+    const COLUMN = pal(0x8a6c3e, 0x9c7f4e, 0xa98a56, 0xb8945f, 0xc09a64);
+    const COLUMN_SEAM = [0x5c4527, 0x4a3720];
+    function column(x0, x1) {
+      for (let y = 0; y < 16; y++) for (let x = x0; x <= x1; x++) {
+        let c = ramp(COLUMN, 0.5 + (r() - 0.5) * 0.5);
+        if (x === x0) c = shade(c, 16);          // outer edge highlight
+        if (x === x1) c = shade(c, -20);         // inner edge shadow
+        putc(t, x, y, c);
+      }
+      // vertical grain streaks
+      for (let x = x0; x <= x1; x++) if (r() < 0.5)
+        for (let y = 0; y < 16; y++) t.bump(x, y, -6);
+      // horizontal seam near the middle
+      for (let x = x0; x <= x1; x++) putc(t, x, 8, pick(r, COLUMN_SEAM));
+    }
+    column(0, 1);
+    column(14, 15);
+
+    return t.finish();
+  };
+
+  T.bookshelf_top = function (r) {
+    const t = createImage();
+    const PLANK = pal(0x9c7f4e, 0xa98a56, 0xb8945f, 0xc09a64, 0xc8a26c);
+    const PLANK_SEAM = [0x6b5231, 0x5c4527];
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      let c = ramp(PLANK, 0.5 + (r() - 0.5) * 0.5);
+      if (y === 0) c = shade(c, 14);
+      if (y === 15) c = shade(c, -20);
+      putc(t, x, y, c);
+    }
+    // horizontal grain streaks
+    for (let y = 0; y < 16; y++) if (r() < 0.5)
+      for (let x = 0; x < 16; x++) t.bump(x, y, -6);
+    // vertical plank seams
+    [0, 5, 10, 15].forEach((sx) => {
+      for (let y = 0; y < 16; y++) { putc(t, sx, y, pick(r, PLANK_SEAM)); if (sx + 1 < 16) t.bump(sx + 1, y, -14); }
+    });
     return t.finish();
   };
 
@@ -1073,6 +1184,7 @@
     tnt:       { top: 'tnt_top',          bottom: 'tnt_bottom',        side: 'tnt_side' },
     hay:       { top: 'hay_top',          bottom: 'hay_top',           side: 'hay_side' },
     cactus:    { top: 'cactus_top',       bottom: 'cactus_top',        side: 'cactus_side' },
+    bookshelf: { top: 'bookshelf_top',    bottom: 'bookshelf_top',     side: 'bookshelf' },
   };
   const FACE_ALIASES = {
     log: 'oak_log',

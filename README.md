@@ -189,6 +189,11 @@ Some convenient short names map to specific face textures:
 | `oak_log`          | `oak_log_side`       |
 | `spruce_log`       | `spruce_log_side`    |
 | `birch_log`        | `birch_log_side`     |
+| `jungle_log`       | `jungle_log_side`    |
+| `acacia_log`       | `acacia_log_side`    |
+| `dark_oak_log`     | `dark_oak_log_side`  |
+| `crimson_stem`     | `crimson_stem_side`  |
+| `warped_stem`      | `warped_stem_side`   |
 | `planks`           | `oak_planks`         |
 | `oak_planks`       | `oak_planks`         |
 | `leaves`           | `oak_leaves`         |
@@ -209,6 +214,11 @@ For blocks that look different on each side, `blockMaterials` uses a built-in fa
 | `oak_log`        | `oak_log_top`      | `oak_log_side`       | `oak_log_top`      | —                    |
 | `spruce_log`     | `spruce_log_top`   | `spruce_log_side`    | `spruce_log_top`   | —                    |
 | `birch_log`      | `birch_log_top`    | `birch_log_side`     | `birch_log_top`    | —                    |
+| `jungle_log`     | `jungle_log_top`   | `jungle_log_side`    | `jungle_log_top`   | —                    |
+| `acacia_log`     | `acacia_log_top`   | `acacia_log_side`    | `acacia_log_top`   | —                    |
+| `dark_oak_log`   | `dark_oak_log_top` | `dark_oak_log_side`  | `dark_oak_log_top` | —                    |
+| `crimson_stem`   | `crimson_stem_top` | `crimson_stem_side`  | `crimson_stem_top` | —                    |
+| `warped_stem`    | `warped_stem_top`  | `warped_stem_side`   | `warped_stem_top`  | —                    |
 | `sandstone`      | `sandstone_top`    | `sandstone_side`     | `sandstone_top`    | —                    |
 | `red_sandstone`  | `red_sandstone_top`| `red_sandstone_side` | `red_sandstone_top`| —                    |
 | `crafting_table` | `crafting_table_top`| `crafting_table_side`| `oak_planks`      | `crafting_table_front`|
@@ -229,11 +239,14 @@ When a block defines a `front`, the `-Z` face receives the front texture and `+Z
 ### Terrain & stone
 `dirt`, `grass_top`, `grass_side`, `stone`, `cobblestone`, `mossy_cobblestone`, `stone_bricks`, `cracked_stone_bricks`, `gravel`, `bedrock`, `clay`
 
+### Stone variants
+`andesite`, `diorite`, `granite`, `deepslate`, `cobbled_deepslate`, `blackstone`
+
 ### Sand
 `sand`, `sandstone_side`, `sandstone_top`, `red_sand`, `red_sandstone_side`, `red_sandstone_top`
 
 ### Wood
-`oak_log_side`, `oak_log_top`, `oak_planks`, `spruce_log_side`, `spruce_log_top`, `spruce_planks`, `birch_log_side`, `birch_log_top`, `birch_planks`, `oak_leaves`
+`oak_log_side`, `oak_log_top`, `oak_planks`, `spruce_log_side`, `spruce_log_top`, `spruce_planks`, `birch_log_side`, `birch_log_top`, `birch_planks`, `jungle_log_side`, `jungle_log_top`, `jungle_planks`, `acacia_log_side`, `acacia_log_top`, `acacia_planks`, `dark_oak_log_side`, `dark_oak_log_top`, `dark_oak_planks`, `crimson_stem_side`, `crimson_stem_top`, `crimson_planks`, `warped_stem_side`, `warped_stem_top`, `warped_planks`, `oak_leaves`, `jungle_leaves`, `acacia_leaves`, `dark_oak_leaves`
 
 ### Ores
 `coal_ore`, `iron_ore`, `gold_ore`, `diamond_ore`, `redstone_ore`, `lapis_ore`, `emerald_ore`, `quartz_ore`
@@ -241,11 +254,14 @@ When a block defines a `front`, the `-Z` face receives the front texture and `+Z
 ### Mineral blocks
 `iron_block`, `gold_block`, `diamond_block`, `emerald_block`, `coal_block`, `lapis_block`, `redstone_block`, `quartz_block`
 
+### Construction
+`copper_block`, `oxidized_copper`, `mud`, `packed_mud`, `sea_lantern`
+
 ### Nether & End
-`bricks`, `nether_bricks`, `netherrack`, `soul_sand`, `glowstone`, `obsidian`, `end_stone`, `purpur_block`, `prismarine`
+`bricks`, `nether_bricks`, `netherrack`, `soul_sand`, `glowstone`, `obsidian`, `end_stone`, `purpur_block`, `prismarine`, `nether_wart_block`, `warped_wart_block`
 
 ### Nature & liquids
-`snow`, `ice`, `water`, `lava`, `glass`, `farmland`, `cactus_side`, `cactus_top`, `hay_side`, `hay_top`, `sponge`, `bookshelf`
+`snow`, `ice`, `water`, `lava`, `glass`, `farmland`, `cactus_side`, `cactus_top`, `hay_side`, `hay_top`, `sponge`, `bookshelf`, `brown_mushroom_block`, `red_mushroom_block`
 
 ### Functional blocks
 `crafting_table_top`, `crafting_table_side`, `crafting_table_front`, `furnace_side`, `furnace_top`, `furnace_front`, `chest_side`, `chest_top`, `chest_front`, `tnt_side`, `tnt_top`, `tnt_bottom`, `pumpkin_side`, `pumpkin_top`, `pumpkin_face`, `melon_side`, `melon_top`

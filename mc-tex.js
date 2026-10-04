@@ -254,6 +254,71 @@
     return canvas;
   };
 
+  /* ---------- STONE VARIANTS ---------- */
+  T.andesite = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x7a7d7a, 0x848784, 0x8e918e, 0x989b98, 0xa2a5a2),
+      { cells: 4, clump: 0.5, stretch: 1.5 });
+    scatter(t, r, 8, () => pick(r, pal(0x6a6d6a, 0x626562)));
+    scatter(t, r, 6, () => pick(r, pal(0xacafac, 0xb4b7b4)));
+    return t.finish();
+  };
+
+  T.diorite = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0xb8b8bc, 0xc2c2c6, 0xccccd0, 0xd6d6da, 0xe0e0e4),
+      { cells: 4, clump: 0.5, stretch: 1.5 });
+    scatter(t, r, 10, () => pick(r, pal(0x8a8a90, 0x7e7e84)));
+    scatter(t, r, 8,  () => pick(r, pal(0xeaeaee, 0xf2f2f6)));
+    return t.finish();
+  };
+
+  T.granite = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x8a5a4a, 0x966454, 0xa26e5e, 0xae7868, 0xba8272),
+      { cells: 4, clump: 0.5, stretch: 1.5 });
+    scatter(t, r, 9, () => pick(r, pal(0x7a4c3e, 0x6e4438)));
+    scatter(t, r, 7, () => pick(r, pal(0xc08a78, 0xca9482)));
+    return t.finish();
+  };
+
+  T.deepslate = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x3a3a3e, 0x424246, 0x4a4a4e, 0x525256, 0x5a5a5e),
+      { cells: 4, clump: 0.5, stretch: 1.5 });
+    scatter(t, r, 7, () => pick(r, pal(0x2e2e32, 0x28282c)));
+    scatter(t, r, 5, () => pick(r, pal(0x646468, 0x6e6e72)));
+    return t.finish();
+  };
+
+  T.cobbled_deepslate = function (r) {
+    const t = createImage();
+    const v = voronoi(r, 3);
+    const tone = v.pts.map(() => 58 + r() * 26);
+    const mortar = pal(0x1e1e22, 0x26262a, 0x2e2e32);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const c = v.cell(x, y);
+      if (v.cell(x + 1, y) !== c || v.cell(x, y + 1) !== c) {
+        putc(t, x, y, pick(r, mortar));
+      } else {
+        let g = tone[c] + (r() * 2 - 1) * 8;
+        if (v.cell(x - 1, y) !== c || v.cell(x, y - 1) !== c) g += 16;
+        g = Math.round(g / 6) * 6;
+        putc(t, x, y, grey(g));
+      }
+    }
+    return t.finish();
+  };
+
+  T.blackstone = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x1e1a20, 0x26222a, 0x2e2a34, 0x36323e, 0x3e3a48),
+      { cells: 4, clump: 0.5, stretch: 1.6 });
+    scatter(t, r, 8, () => pick(r, pal(0x141018, 0x100c14)));
+    scatter(t, r, 5, () => pick(r, pal(0x4a4654, 0x565262)));
+    return t.finish();
+  };
+
   /* ---------- SAND / SANDSTONE ---------- */
   T.sand = function (r) {
     const t = createImage();
@@ -411,12 +476,62 @@
   T.birch_log_top   = (r) => logTop(r, pal(0xc0a878, 0xd8c090, 0xccb488, 0xd8c090, 0xc0a878, 0xd0b888, 0x8a7048, 0x6a5538));
   T.birch_planks    = (r) => planksTexture(r, pal(0xc0a878, 0xd0b888, 0xdcc498, 0xe8d0a8, 0xf0dcb8), 0xa89060);
 
-  T.oak_leaves = function (r) {
+  T.jungle_log_side = (r) => logSide(r, pal(0x3a2a16, 0x4c3a1e, 0x5e4a28, 0x705a32, 0x826a3c), 0x3a2a16);
+  T.jungle_log_top  = (r) => logTop(r, pal(0x9a7a48, 0xb09058, 0xa0804c, 0xb4945c, 0x9a7a48, 0xac8c54, 0x6a5230, 0x584424));
+  T.jungle_planks   = (r) => planksTexture(r, pal(0x9a6a3a, 0xa87844, 0xb6864e, 0xc49458, 0xd2a264), 0x7a5028);
+
+  T.acacia_log_side = (r) => logSide(r, pal(0x3a2c1c, 0x4a3824, 0x5c462c, 0x6e5636, 0x806640), 0x3a2c1c);
+  T.acacia_log_top  = (r) => logTop(r, pal(0xa8542a, 0xc06a34, 0xb05e2e, 0xc46e38, 0xa8542a, 0xbc6632, 0x7a3c1e, 0x663018));
+  T.acacia_planks   = (r) => planksTexture(r, pal(0xa85a2c, 0xb86834, 0xc6763c, 0xd48444, 0xe0924c), 0x884420);
+
+  T.dark_oak_log_side = (r) => logSide(r, pal(0x241a0e, 0x302314, 0x3e2e1a, 0x4c3a22, 0x5a462a), 0x241a0e);
+  T.dark_oak_log_top  = (r) => logTop(r, pal(0x6a4e2c, 0x7e5e36, 0x745430, 0x826238, 0x6a4e2c, 0x7a5a34, 0x4a3620, 0x3a2a18));
+  T.dark_oak_planks   = (r) => planksTexture(r, pal(0x4a3218, 0x563c1e, 0x624624, 0x6e502a, 0x7a5a30), 0x3a2612);
+
+  T.crimson_stem_side = (r) => logSide(r, pal(0x5a2438, 0x6e2c44, 0x823450, 0x963c5c, 0xaa4468), 0x4a1c2e);
+  T.crimson_stem_top  = (r) => logTop(r, pal(0x8a3a54, 0xa04864, 0x94405c, 0xa84c68, 0x8a3a54, 0x9c4460, 0x6a2a40, 0x5a2234));
+  T.crimson_planks    = (r) => planksTexture(r, pal(0x6a2c44, 0x7a3450, 0x8a3c5c, 0x9a4468, 0xaa4c74), 0x521e34);
+
+  T.warped_stem_side = (r) => logSide(r, pal(0x1e4a4a, 0x265a5a, 0x2e6a6a, 0x367a7a, 0x3e8a8a), 0x183c3c);
+  T.warped_stem_top  = (r) => logTop(r, pal(0x2e6a6a, 0x3a7e7e, 0x347474, 0x3e8282, 0x2e6a6a, 0x387878, 0x1e4a4a, 0x163a3a));
+  T.warped_planks    = (r) => planksTexture(r, pal(0x2a5a5a, 0x326868, 0x3a7676, 0x428484, 0x4a9292), 0x1e4444);
+
+  function leavesTexture(r, P, dark, light) {
     const t = createImage();
-    fillNoise(t, r, pal(0x1e4d14, 0x2c6a1c, 0x3c8527, 0x4ea030, 0x62b83e),
-      { cells: 6, clump: 0.5, stretch: 1.6 });
-    scatter(t, r, 14, () => pick(r, pal(0x153a0e, 0x1a4410)));
-    scatter(t, r, 8,  () => pick(r, pal(0x7ccf4c, 0x70c244)));
+    fillNoise(t, r, P, { cells: 6, clump: 0.5, stretch: 1.6 });
+    scatter(t, r, 14, () => pick(r, dark));
+    scatter(t, r, 8,  () => pick(r, light));
+    return t.finish();
+  }
+
+  T.oak_leaves = (r) => leavesTexture(r,
+    pal(0x1e4d14, 0x2c6a1c, 0x3c8527, 0x4ea030, 0x62b83e),
+    pal(0x153a0e, 0x1a4410), pal(0x7ccf4c, 0x70c244));
+  T.jungle_leaves = (r) => leavesTexture(r,
+    pal(0x1a4a10, 0x266018, 0x347a22, 0x44942c, 0x56ae38),
+    pal(0x123a0a, 0x16420c), pal(0x6ec244, 0x62b43c));
+  T.acacia_leaves = (r) => leavesTexture(r,
+    pal(0x3a5a14, 0x4a6e1c, 0x5a8224, 0x6a962c, 0x7aaa34),
+    pal(0x2c460e, 0x325010), pal(0x96c850, 0x8abc48));
+  T.dark_oak_leaves = (r) => leavesTexture(r,
+    pal(0x143a0e, 0x1e4c14, 0x285c1a, 0x326c20, 0x3c7c26),
+    pal(0x0e2c08, 0x12340a), pal(0x54a838, 0x4a9c30));
+
+  T.nether_wart_block = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x6a0e14, 0x7a1418, 0x8a1a1e, 0x9a2024, 0xaa282c),
+      { cells: 5, clump: 0.55, stretch: 1.5 });
+    scatter(t, r, 10, () => pick(r, pal(0x5a0a10, 0x4e080c)));
+    scatter(t, r, 6,  () => pick(r, pal(0xb83438, 0xc04044)));
+    return t.finish();
+  };
+
+  T.warped_wart_block = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x1a6a6a, 0x1e7a7a, 0x228a8a, 0x269a9a, 0x2aaaaa),
+      { cells: 5, clump: 0.55, stretch: 1.5 });
+    scatter(t, r, 10, () => pick(r, pal(0x145858, 0x104c4c)));
+    scatter(t, r, 6,  () => pick(r, pal(0x3ac0c0, 0x46cccc)));
     return t.finish();
   };
 
@@ -546,6 +661,66 @@
   T.lapis_block    = (r) => metalBlock(r, [30, 60, 150]);
   T.redstone_block = (r) => metalBlock(r, [180, 24, 24]);
   T.quartz_block   = (r) => metalBlock(r, [235, 230, 220]);
+
+  /* ---------- CONSTRUCTION ---------- */
+  T.copper_block = function (r) {
+    const t = createImage();
+    const P = pal(0xb05a34, 0xc06a3c, 0xd07a44, 0xe08a4c, 0xf09a54);
+    fillNoise(t, r, P, { cells: 3, clump: 0.5, stretch: 1.3 });
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, 14); t.bump(0, i, 9);
+      t.bump(i, 15, -14); t.bump(15, i, -9);
+    }
+    scatter(t, r, 6, () => pick(r, pal(0x9a4a28, 0xa85230)));
+    return t.finish();
+  };
+
+  T.oxidized_copper = function (r) {
+    const t = createImage();
+    const P = pal(0x3a8a72, 0x449a80, 0x4eaa8e, 0x58ba9c, 0x62caaa);
+    fillNoise(t, r, P, { cells: 3, clump: 0.5, stretch: 1.3 });
+    for (let i = 0; i < 16; i++) {
+      t.bump(i, 0, 14); t.bump(0, i, 9);
+      t.bump(i, 15, -14); t.bump(15, i, -9);
+    }
+    scatter(t, r, 8, () => pick(r, pal(0x2e7a64, 0x266a56)));
+    scatter(t, r, 5, () => pick(r, pal(0x74d8b8, 0x80e0c0)));
+    return t.finish();
+  };
+
+  T.mud = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x3c3228, 0x443a2e, 0x4c4234, 0x544a3a, 0x5c5240),
+      { cells: 4, clump: 0.55, stretch: 1.4 });
+    scatter(t, r, 8, () => pick(r, pal(0x30281e, 0x2a2218)));
+    scatter(t, r, 5, () => pick(r, pal(0x665c48, 0x706650)));
+    return t.finish();
+  };
+
+  T.packed_mud = function (r) {
+    const t = createImage();
+    fillNoise(t, r, pal(0x8a6a4a, 0x967454, 0xa27e5e, 0xae8868, 0xba9272),
+      { cells: 4, clump: 0.5, stretch: 1.4 });
+    scatter(t, r, 7, () => pick(r, pal(0x7a5c3e, 0x6e5238)));
+    scatter(t, r, 5, () => pick(r, pal(0xc49c7c, 0xcea686)));
+    return t.finish();
+  };
+
+  T.sea_lantern = function (r) {
+    const t = createImage();
+    const P = pal(0x8ad8d0, 0x9ee4dc, 0xb2f0e8, 0xc6fcf4, 0xdafff8);
+    const v = voronoi(r, 4);
+    const tone = v.pts.map(() => rint(r, P.length));
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const c = v.cell(x, y);
+      let i = tone[c];
+      if (r() < 0.25) i += r() < 0.5 ? -1 : 1;
+      if ((v.cell(x + 1, y) !== c || v.cell(x, y + 1) !== c) && r() < 0.8) i -= 1;
+      else if ((v.cell(x - 1, y) !== c || v.cell(x, y - 1) !== c) && r() < 0.6) i += 1;
+      putc(t, x, y, P[Math.max(0, Math.min(P.length - 1, i))]);
+    }
+    return t.finish();
+  };
 
   /* ---------- OBSIDIAN / END ---------- */
   T.obsidian = function (r) {
@@ -699,6 +874,28 @@
     }
     return t.finish();
   };
+
+  function mushroomBlock(r, cap, spot) {
+    const t = createImage();
+    fillNoise(t, r, cap, { cells: 4, clump: 0.5, stretch: 1.4 });
+    const n = 5 + rint(r, 3);
+    for (let k = 0; k < n; k++) {
+      const cx = 2 + rint(r, 12), cy = 2 + rint(r, 12);
+      const rad = 1 + rint(r, 2);
+      for (let y = cy - rad; y <= cy + rad; y++) for (let x = cx - rad; x <= cx + rad; x++) {
+        const dx = x - cx, dy = y - cy;
+        if (dx * dx + dy * dy <= rad * rad) putc(t, x, y, pick(r, spot));
+      }
+    }
+    return t.finish();
+  }
+
+  T.brown_mushroom_block = (r) => mushroomBlock(r,
+    pal(0x8a6a4a, 0x967454, 0xa27e5e, 0xae8868, 0xba9272),
+    pal(0x6a4e34, 0x5e442c, 0x745638));
+  T.red_mushroom_block = (r) => mushroomBlock(r,
+    pal(0xa83028, 0xb83a30, 0xc84438, 0xd84e40, 0xe85848),
+    pal(0xe8e0d0, 0xf0e8d8, 0xdcd4c4));
 
   /* ---------- FUNCTIONAL BLOCKS ---------- */
   const CRAFT_WOOD = pal(0x9a7038, 0xa87c42, 0xb6884c, 0xc49456, 0xd2a060);
@@ -1155,6 +1352,11 @@
     oak_log:    'oak_log_side',
     spruce_log: 'spruce_log_side',
     birch_log:  'birch_log_side',
+    jungle_log: 'jungle_log_side',
+    acacia_log: 'acacia_log_side',
+    dark_oak_log: 'dark_oak_log_side',
+    crimson_stem: 'crimson_stem_side',
+    warped_stem:  'warped_stem_side',
     planks:     'oak_planks',
     oak_planks: 'oak_planks',
     leaves:     'oak_leaves',
@@ -1174,6 +1376,11 @@
     oak_log:   { top: 'oak_log_top',      bottom: 'oak_log_top',       side: 'oak_log_side' },
     spruce_log:{ top: 'spruce_log_top',   bottom: 'spruce_log_top',    side: 'spruce_log_side' },
     birch_log: { top: 'birch_log_top',    bottom: 'birch_log_top',     side: 'birch_log_side' },
+    jungle_log:{ top: 'jungle_log_top',   bottom: 'jungle_log_top',    side: 'jungle_log_side' },
+    acacia_log:{ top: 'acacia_log_top',   bottom: 'acacia_log_top',    side: 'acacia_log_side' },
+    dark_oak_log:{ top: 'dark_oak_log_top', bottom: 'dark_oak_log_top', side: 'dark_oak_log_side' },
+    crimson_stem:{ top: 'crimson_stem_top', bottom: 'crimson_stem_top', side: 'crimson_stem_side' },
+    warped_stem: { top: 'warped_stem_top',  bottom: 'warped_stem_top',  side: 'warped_stem_side' },
     sandstone: { top: 'sandstone_top',    bottom: 'sandstone_top',     side: 'sandstone_side' },
     red_sandstone: { top: 'red_sandstone_top', bottom: 'red_sandstone_top', side: 'red_sandstone_side' },
     crafting_table: { top: 'crafting_table_top', bottom: 'oak_planks', side: 'crafting_table_side', front: 'crafting_table_front' },

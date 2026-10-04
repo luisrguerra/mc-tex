@@ -11,13 +11,13 @@ canvas{display:block;width:100%;height:100%}
 #cross:before,#cross:after{content:"";position:absolute;background:#fff;mix-blend-mode:difference}
 #cross:before{left:9px;top:0;width:2px;height:20px}
 #cross:after{top:9px;left:0;height:2px;width:20px}
-#bar{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:2px;padding:3px;background:#0008;border:2px solid #000;max-width:94vw}
-#bar div{width:34px;height:34px;border:2px solid #555;background:#0006;position:relative}
+#bar{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:2px;padding:3px;background:#0008;border:2px solid #000;max-width:94vw;max-height:46vh;overflow-y:auto}
+#bar div{width:30px;height:30px;border:2px solid #555;background:#0006;position:relative;flex:0 0 auto}
 #bar div.on{border-color:#fff}
 #bar img{width:100%;height:100%;image-rendering:pixelated}
-#bar b{position:absolute;left:2px;top:0;font-size:10px;text-shadow:1px 1px #000}
+#bar b{position:absolute;left:2px;top:0;font-size:9px;text-shadow:1px 1px #000}
 #info{position:fixed;top:6px;left:8px;text-shadow:1px 1px #000;white-space:pre}
-#name{position:fixed;bottom:84px;width:100%;text-align:center;text-shadow:1px 1px #000;font-size:15px}
+#name{position:fixed;bottom:84px;width:100%;text-align:center;text-shadow:1px 1px #000;font-size:15px;pointer-events:none}
 #menu{position:fixed;inset:0;background:#000b;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;text-align:center;line-height:1.8}
 #menu h1{margin:0 0 12px;font-size:34px}
 </style>
@@ -39,14 +39,43 @@ if(!gl){alert('WebGL2 não suportado neste navegador.');return;}
 
 /* ---------- blocos: [nome, topo, base, lado, transparente] ---------- */
 const S=(n,t,tr)=>[n,t,t,t,tr];
+/* IDs 1..23 são usados pela geração do mundo — não reordenar. */
 const B=[0,
  ['Grama','grass_top','dirt','grass_side'],S('Terra','dirt'),S('Pedra','stone'),S('Pedregulho','cobblestone'),
  S('Tábuas','oak_planks'),['Tronco','oak_log_top','oak_log_top','oak_log_side'],S('Folhas','oak_leaves',1),S('Areia','sand'),
  ['Arenito','sandstone_top','sandstone_top','sandstone_side'],S('Vidro','glass',1),S('Tijolos','bricks'),S('Pedra lapidada','stone_bricks'),
- ['Estante','oak_planks','oak_planks','bookshelf'],S('Glowstone','glowstone'),['TNT','tnt_top','tnt_bottom','tnt_side'],
+ ['Estante','bookshelf_top','bookshelf_top','bookshelf'],S('Glowstone','glowstone'),['TNT','tnt_top','tnt_bottom','tnt_side'],
  ['Bancada','crafting_table_top','oak_planks','crafting_table_front'],S('Obsidiana','obsidian'),S('Neve','snow'),
  S('Minério de carvão','coal_ore'),S('Minério de ferro','iron_ore'),S('Minério de ouro','gold_ore'),S('Minério de diamante','diamond_ore'),
- S('Bedrock','bedrock'),S('Bloco de ouro','gold_block'),S('Bloco de diamante','diamond_block')];
+ S('Bedrock','bedrock'),S('Bloco de ouro','gold_block'),S('Bloco de diamante','diamond_block'),
+ /* ---------- blocos adicionais ---------- */
+ S('Bloco de ferro','iron_block'),S('Bloco de esmeralda','emerald_block'),S('Bloco de carvão','coal_block'),
+ S('Bloco de lápis','lapis_block'),S('Bloco de redstone','redstone_block'),S('Bloco de quartzo','quartz_block'),
+ S('Bloco de cobre','copper_block'),S('Cobre oxidado','oxidized_copper'),
+ S('Barro','clay'),S('Cascalho','gravel'),S('Pedregulho musgoso','mossy_cobblestone'),S('Tijolos rachados','cracked_stone_bricks'),
+ S('Andesito','andesite'),S('Diorito','diorite'),S('Granito','granite'),S('Ardósia','deepslate'),S('Ardósia pedregulho','cobbled_deepslate'),
+ S('Pedra-negra','blackstone'),S('Areia vermelha','red_sand'),
+ ['Arenito vermelho','red_sandstone_top','red_sandstone_top','red_sandstone_side'],
+ ['Tronco de pinheiro','spruce_log_top','spruce_log_top','spruce_log_side'],S('Tábuas de pinheiro','spruce_planks'),
+ ['Tronco de bétula','birch_log_top','birch_log_top','birch_log_side'],S('Tábuas de bétula','birch_planks'),
+ ['Tronco de selva','jungle_log_top','jungle_log_top','jungle_log_side'],S('Tábuas de selva','jungle_planks'),
+ ['Tronco de acácia','acacia_log_top','acacia_log_top','acacia_log_side'],S('Tábuas de acácia','acacia_planks'),
+ ['Tronco de carvalho escuro','dark_oak_log_top','dark_oak_log_top','dark_oak_log_side'],S('Tábuas de carvalho escuro','dark_oak_planks'),
+ ['Caule carmesim','crimson_stem_top','crimson_stem_top','crimson_stem_side'],S('Tábuas carmesim','crimson_planks'),
+ ['Caule distorcido','warped_stem_top','warped_stem_top','warped_stem_side'],S('Tábuas distorcidas','warped_planks'),
+ S('Folhas de selva','jungle_leaves',1),S('Folhas de acácia','acacia_leaves',1),S('Folhas de carvalho escuro','dark_oak_leaves',1),
+ S('Minério de redstone','redstone_ore'),S('Minério de lápis','lapis_ore'),S('Minério de esmeralda','emerald_ore'),S('Minério de quartzo','quartz_ore'),
+ S('Lama','mud'),S('Lama compactada','packed_mud'),S('Lanterna do mar','sea_lantern'),
+ S('Netherrack','netherrack'),S('Tijolos do Nether','nether_bricks'),S('Areia das almas','soul_sand'),
+ S('Pedra do End','end_stone'),S('Bloco de purpur','purpur_block'),S('Prismarinho','prismarine'),
+ S('Verruga do Nether','nether_wart_block'),S('Verruga distorcida','warped_wart_block'),
+ S('Gelo','ice',1),S('Água','water',1),S('Lava','lava'),S('Terra arada','farmland'),
+ ['Cacto','cactus_top','cactus_top','cactus_side'],['Feno','hay_top','hay_top','hay_side'],
+ S('Esponja','sponge'),S('Cogumelo marrom','brown_mushroom_block'),S('Cogumelo vermelho','red_mushroom_block'),
+ ['Fornalha','furnace_top','furnace_top','furnace_front'],['Baú','chest_top','chest_top','chest_front'],
+ ['Abóbora','pumpkin_top','pumpkin_top','pumpkin_face'],['Melancia','melon_top','melon_top','melon_side'],
+ S('Lã branca','wool_white'),S('Lã vermelha','wool_red'),S('Lã laranja','wool_orange'),S('Lã amarela','wool_yellow'),
+ S('Lã verde','wool_green'),S('Lã azul','wool_blue'),S('Lã roxa','wool_purple'),S('Lã preta','wool_black')];
 const BEDROCK=23,PL=[];for(let i=1;i<B.length;i++)if(i!==BEDROCK)PL.push(i);
 
 /* ---------- atlas de texturas a partir do mc-tex.js ---------- */
@@ -208,6 +237,8 @@ PL.forEach((id,i)=>{const d=document.createElement('div'),im=new Image();im.src=
  d.appendChild(im);if(i<9){const b=document.createElement('b');b.textContent=i+1;d.appendChild(b);}bar.appendChild(d);});
 function select(i){sel=(i+PL.length)%PL.length;[...bar.children].forEach((d,j)=>d.classList.toggle('on',j===sel));nameEl.textContent=B[PL[sel]][0];}
 select(0);
+function placeName(){nameEl.style.bottom=(bar.offsetHeight+18)+'px';}
+placeName();addEventListener('resize',placeName);requestAnimationFrame(placeName);
 const locked=()=>document.pointerLockElement===cv;
 menu.onclick=()=>cv.requestPointerLock();
 document.addEventListener('pointerlockchange',()=>{menu.style.display=locked()?'none':'flex';if(!locked())for(const k in keys)keys[k]=false;});

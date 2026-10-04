@@ -11,7 +11,10 @@
      MCItems.toPNGBlob(name, materialOrPalette, cb) -> Blob via callback
      MCItems.generate(name, opts)                 -> fresh canvas
          opts = { material: 'gold' }  OR
-         opts = { palette: { head:[rgb,rgb,rgb], handle:[...], accent:[...] } }
+         opts = { palette: { head:[rgb,rgb,rgb], handle:[...], accent:[...],
+                             outline:{ head:rgb, handle:rgb, accent:rgb } } }
+         (`outline` is optional; when omitted it is derived automatically
+          by darkening the darkest shade of each ramp)
      MCItems.registerMaterial(name, palette)      -> register custom material
      MCItems.MATERIALS                            -> raw material table
      MCItems.THREE.texture(name, mat, THREE)      -> THREE.CanvasTexture
@@ -25,6 +28,13 @@
    Materials (6):
      wood, stone, iron, gold, diamond, netherite
 
+   Style notes (v2):
+     - Every sprite has a dark 1px outline, like vanilla Minecraft items.
+     - Light comes from the top-left: highlights on the upper/left
+       edges, darker shades on the lower/right edges.
+     - Tools follow the vanilla diagonal layout (handle bottom-left,
+       business end top-right).
+
    NOTE: This library does NOT support random generation.
    Every item/material produces a deterministic sprite.
    ============================================================ */
@@ -35,6 +45,11 @@
 
   const hex = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
   const pal = (...hs) => hs.map(hex);
+  const darken = (c, f) => [
+    Math.round(c[0] * f),
+    Math.round(c[1] * f),
+    Math.round(c[2] * f),
+  ];
 
   /* ============================================================
      MATERIALS
@@ -42,42 +57,60 @@
        head   — the blade/tool-head part      (light, mid, dark)
        handle — the wooden/leather grip       (light, mid, dark)
        accent — decorative details / guard    (light, mid, dark)
+     Outlines are derived automatically from the dark shade of
+     each ramp (see deriveOutline) unless a palette provides its
+     own `outline` object.
      ============================================================ */
   const MATERIALS = {
     wood: {
-      head:   pal(0xa07a44, 0x7c5a2e, 0x503818),
-      handle: pal(0xa07a44, 0x7c5a2e, 0x503818),
+      head:   pal(0xb08a52, 0x8a6638, 0x5c4120),
+      handle: pal(0xa57d45, 0x7c5a2e, 0x503818),
       accent: pal(0xb8905a, 0x8c6a3c, 0x5e4420),
     },
     stone: {
-      head:   pal(0xb0b0b0, 0x848484, 0x585858),
-      handle: pal(0x9c7c4c, 0x74562e, 0x4c3818),
-      accent: pal(0x9c9c9c, 0x707070, 0x484848),
+      head:   pal(0xc2c2c2, 0x8e8e8e, 0x5e5e5e),
+      handle: pal(0xa57d45, 0x7c5a2e, 0x503818),
+      accent: pal(0xa8a8a8, 0x777777, 0x4c4c4c),
     },
     iron: {
-      head:   pal(0xf0f0f0, 0xb8b8b8, 0x787878),
-      handle: pal(0x9c7c4c, 0x74562e, 0x4c3818),
-      accent: pal(0xd8d8d8, 0xa0a0a0, 0x686868),
+      head:   pal(0xf4f4f4, 0xc0c0c0, 0x7c7c7c),
+      handle: pal(0xa57d45, 0x7c5a2e, 0x503818),
+      accent: pal(0xdcdcdc, 0xa4a4a4, 0x6c6c6c),
     },
     gold: {
-      head:   pal(0xfff090, 0xe8b830, 0xa87818),
-      handle: pal(0x9c7c4c, 0x74562e, 0x4c3818),
-      accent: pal(0xffd850, 0xd8a020, 0x907010),
+      head:   pal(0xfff7a0, 0xf0c038, 0xb07c18),
+      handle: pal(0xa57d45, 0x7c5a2e, 0x503818),
+      accent: pal(0xffe060, 0xdca820, 0x94701a),
     },
     diamond: {
-      head:   pal(0xa8f4ec, 0x50c8c0, 0x249088),
-      handle: pal(0x9c7c4c, 0x74562e, 0x4c3818),
-      accent: pal(0x80e8e0, 0x40b0a8, 0x1c8078),
+      head:   pal(0xbafaf2, 0x54d8cc, 0x249a90),
+      handle: pal(0xa57d45, 0x7c5a2e, 0x503818),
+      accent: pal(0x90f0e8, 0x44bcb2, 0x1e8a80),
     },
     netherite: {
-      head:   pal(0x746a6a, 0x4c4242, 0x2a2222),
-      handle: pal(0x4a3a2c, 0x342818, 0x1e160c),
-      accent: pal(0x5c5050, 0x3c3232, 0x221a1a),
+      head:   pal(0x82787a, 0x544a4c, 0x2e2628),
+      handle: pal(0x544232, 0x3a2c1c, 0x22190e),
+      accent: pal(0x685c5e, 0x433a3c, 0x261e20),
     },
   };
 
-  /* Fixed fire palette for torches (never material-dependent) */
-  const FIRE = pal(0xffe87a, 0xffa030, 0xbe3810);
+  /* Fixed palettes (never material-dependent) */
+  const FIRE   = pal(0xffee8a, 0xffa030, 0xc23c10);
+  const STRING = pal(0xe6e6e6, 0x9a9a9a);
+
+  /* ============================================================
+     OUTLINE DERIVATION
+     Vanilla item outlines are a much darker version of the
+     material's darkest shade.
+     ============================================================ */
+  function deriveOutline(p) {
+    const o = p.outline || {};
+    return {
+      head:   o.head   || darken(p.head[2],   0.50),
+      handle: o.handle || darken(p.handle[2], 0.52),
+      accent: o.accent || darken(p.accent[2], 0.52),
+    };
+  }
 
   /* ============================================================
      CHARACTER -> COLOR RESOLVER
@@ -85,8 +118,11 @@
        '1','2','3' — head   light / mid / dark
        'h','H','x' — handle light / mid / dark
        'a','A','q' — accent light / mid / dark
+       'o','O','u' — outline of head / handle / accent
        'f','g','G' — fire   light / mid / dark  (fixed colors)
+       's','S'     — string light / dark         (fixed colors)
        '.'         — transparent
+     Each resolver receives (palette, outlines).
      ============================================================ */
   const CHAR_MAP = {
     '1': (p) => p.head[0],
@@ -98,9 +134,14 @@
     'a': (p) => p.accent[0],
     'A': (p) => p.accent[1],
     'q': (p) => p.accent[2],
+    'o': (p, o) => o.head,
+    'O': (p, o) => o.handle,
+    'u': (p, o) => o.accent,
     'f': ()  => FIRE[0],
     'g': ()  => FIRE[1],
     'G': ()  => FIRE[2],
+    's': ()  => STRING[0],
+    'S': ()  => STRING[1],
   };
 
   /* ============================================================
@@ -109,222 +150,212 @@
      ============================================================ */
   const SPRITES = {
 
-    /* -------- Sword -------- */
     sword: {
       rows: [
-        '..............1.',
-        '.............12.',
-        '............12..',
-        '...........12...',
-        '..........12....',
-        '.........12.....',
-        '........12......',
-        '.......12.......',
-        '......12........',
-        '.....12.........',
-        '..aaa12.........',
-        '..hhaA..........',
-        '..hh............',
-        '.hh.............',
-        'hh..............',
-        '................',
+        '..............oo',
+        '.............o13',
+        '............o13o',
+        '...........o13o.',
+        '..........o13o..',
+        '.........o13o...',
+        '........o13o....',
+        '...uu..o13o.....',
+        '..uaAuo13o......',
+        '...uAA13o.......',
+        '....uAAo........',
+        '...OhuAAu.......',
+        '..OHO.uAqu......',
+        '.OhO...uu.......',
+        'uHO.............',
+        'Au..............',
       ],
     },
 
-    /* -------- Pickaxe -------- */
     pickaxe: {
       rows: [
         '................',
-        '....11111111....',
-        '...1222222221...',
-        '..12...hh...21..',
-        '..1....hh....1..',
-        '.1.....hh.....1.',
-        '.1.....hh.....1.',
-        '......hh........',
-        '......hh........',
-        '.....hh.........',
-        '.....hh.........',
-        '....hh..........',
-        '...hh...........',
-        '..hh............',
-        '.hh.............',
         '................',
+        '....ooooo.......',
+        '...o11112oo.....',
+        '....o222212o....',
+        '.....oooo222o...',
+        '.........o22o...',
+        '.......O..o12o..',
+        '......OHO.o12o..',
+        '.....OhO..o12o..',
+        '....OHO...o22o..',
+        '...OhO.....o3o..',
+        '..OHO.......o...',
+        '.OhO............',
+        'OHO.............',
+        'hO..............',
       ],
     },
 
-    /* -------- Axe -------- */
     axe: {
       rows: [
         '................',
-        '...11111........',
-        '..1222221.......',
-        '..122222h.......',
-        '..1222.hh.......',
-        '..122.hh........',
-        '..122.hh........',
-        '..122.hh........',
-        '..122.hh........',
-        '...12hh.........',
-        '....1hh.........',
-        '.....hh.........',
-        '.....hh.........',
-        '....hh..........',
-        '...hh...........',
-        '................',
+        '.......ooooo....',
+        '.....oo11112o...',
+        '....o1122223hO..',
+        '...o1222223HO...',
+        '...o122223hO....',
+        '...o22223HO.....',
+        '....o223hO......',
+        '.....ooHO.......',
+        '.....OhO........',
+        '....OHO.........',
+        '...OhO..........',
+        '..OHO...........',
+        '.OhO............',
+        'OHO.............',
+        'hO..............',
       ],
     },
 
-    /* -------- Shovel -------- */
     shovel: {
       rows: [
-        '................',
-        '...11111111.....',
-        '..1222222221....',
-        '..1222222221....',
-        '..1222222221....',
-        '..1222222221....',
-        '..1222222221....',
-        '...12222221.....',
-        '.....hhhh.......',
-        '.....hh.........',
-        '.....hh.........',
-        '....hh..........',
-        '....hh..........',
-        '...hh...........',
-        '..hh............',
-        '................',
+        '.........oooooo.',
+        '........o111112o',
+        '........o122222o',
+        '.......o1222223o',
+        '.......o122222o.',
+        '.......o122223o.',
+        '.......o2223oo..',
+        '.......Ohooo....',
+        '......OHO.......',
+        '.....OhO........',
+        '....OHO.........',
+        '...OhO..........',
+        '..OHO...........',
+        '.OhO............',
+        'OHO.............',
+        'hO..............',
       ],
     },
 
-    /* -------- Hoe -------- */
     hoe: {
       rows: [
         '................',
-        '..111111111.....',
-        '.12222222221....',
-        '.1222.....hh....',
-        '..1......hh.....',
-        '.........hh.....',
-        '........hh......',
-        '........hh......',
-        '.......hh.......',
-        '.......hh.......',
-        '......hh........',
-        '......hh........',
-        '.....hh.........',
-        '....hh..........',
-        '...hh...........',
-        '................',
+        '.....ooooooo....',
+        '....o1111112o...',
+        '...o12222223o...',
+        '...o13oooooHO...',
+        '...o3o...OhO....',
+        '....o...OHO.....',
+        '.......OhO......',
+        '......OHO.......',
+        '.....OhO........',
+        '....OHO.........',
+        '...OhO..........',
+        '..OHO...........',
+        '.OhO............',
+        'OHO.............',
+        'hO..............',
       ],
     },
 
-    /* -------- Bow -------- */
     bow: {
       rows: [
-        '..........hh....',
-        '.........hh.a...',
-        '........hh..a...',
-        '.......hh...a...',
-        '.......hh...a...',
-        '......hh....a...',
-        '......hh....a...',
-        '......hh....a...',
-        '......hh....a...',
-        '......hh....a...',
-        '......hh....a...',
-        '.......hh...a...',
-        '.......hh...a...',
-        '........hh..a...',
-        '.........hh.a...',
-        '..........hh....',
+        '..OOOOOOO.......',
+        '.OhHhHhHhOO.....',
+        '.OhHOOOOOHhOO...',
+        '..OOs....OOHhO..',
+        '.....s.....OhO..',
+        '......s.....OHO.',
+        '.......s....OHO.',
+        '........s...OHhO',
+        '.........s...OhO',
+        '..........s..OhO',
+        '...........s.OhO',
+        '............sHhO',
+        '...........OOHO.',
+        '..........OHhO..',
+        '...........OO...',
+        '................',
       ],
     },
 
-    /* -------- Arrow -------- */
     arrow: {
       rows: [
-        '..............1.',
-        '.............11.',
-        '............11..',
-        '...........1h...',
-        '..........hh....',
-        '.........hh.....',
-        '........hh......',
-        '.......hh.......',
-        '......hh........',
-        '.....hh.........',
-        '...ahh..........',
-        '..aah...........',
-        '.aa.............',
-        'a...............',
-        '................',
-        '................',
+        '.............o12',
+        '............o123',
+        '...........o123o',
+        '...........o23o.',
+        '..........OHoo..',
+        '.........OhO....',
+        '........OHO.....',
+        '.......OhO......',
+        '......OHO.......',
+        '....uuhO........',
+        '...uaAu.........',
+        '..uuhqu.........',
+        '.uaAuu..........',
+        'uaAqu...........',
+        'aAqu............',
+        'uqu.............',
       ],
     },
 
-    /* -------- Fishing Rod -------- */
     fishing_rod: {
       rows: [
-        '..hh............',
-        '...hh...........',
-        '....hh..........',
-        '.....hh.........',
-        '......hh........',
-        '.......h........',
         '................',
-        '...........a....',
-        '...........a....',
-        '...........a....',
-        '...........a....',
-        '...........a....',
-        '...........a....',
-        '...........aa...',
-        '...........a.a..',
-        '...........aa...',
+        '.............O..',
+        '............OHs.',
+        '...........OhOs.',
+        '..........OHO.s.',
+        '.........OhO..s.',
+        '........OHO...s.',
+        '.......OhO....s.',
+        '......OHO.....s.',
+        '.....OhO......s.',
+        '....OHO.......s.',
+        '...OhO........s.',
+        '..OHO.......oo1o',
+        '.OhO.......o2o3o',
+        'OHO.........o2o.',
+        'hO...........o..',
       ],
     },
 
-    /* -------- Shield -------- */
     shield: {
       rows: [
-        '..111111111111..',
-        '..122222222221..',
-        '..122222222221..',
-        '..1222aaa22221..',
-        '..122aaaaa2221..',
-        '..12aaaaaaa221..',
-        '..122aaaaa2221..',
-        '..1222aaa22221..',
-        '..122222222221..',
-        '..122222222221..',
-        '..122222222221..',
-        '...1222222221...',
-        '....12222221....',
-        '.....122221.....',
-        '......1221......',
-        '.......11.......',
+        '..oooooooooooo..',
+        '..o1111111112o..',
+        '..o1hHhxxhHh2o..',
+        '..o1hHhuuhHh2o..',
+        '..o1hHuaAuHh2o..',
+        '..o1huaaAquh2o..',
+        '..o1huaAAquh2o..',
+        '..o1hHuAquHh2o..',
+        '..o1hHhuuhHh2o..',
+        '..o1hHhxxhHh2o..',
+        '...o1HhxxhH2o...',
+        '....o1hxxh2o....',
+        '.....o1xx2o.....',
+        '......o12o......',
+        '.......oo.......',
+        '................',
       ],
     },
 
-    /* -------- Torch -------- */
     torch: {
       rows: [
-        '.......ff.......',
-        '......fggf......',
-        '.....fggggf.....',
-        '.....fggggf.....',
-        '......fggf......',
-        '.......hh.......',
-        '.......hh.......',
-        '.......hh.......',
-        '.......hh.......',
-        '.......hh.......',
-        '.......hh.......',
-        '.......hh.......',
-        '.......hh.......',
-        '.......hh.......',
-        '.......hh.......',
+        '................',
+        '.......gG.......',
+        '......gffG......',
+        '......gffG......',
+        '.......gG.......',
+        '.......Hx.......',
+        '.......hH.......',
+        '.......hH.......',
+        '.......hH.......',
+        '.......HH.......',
+        '.......hH.......',
+        '.......hH.......',
+        '.......hH.......',
+        '.......hH.......',
+        '.......xx.......',
         '................',
       ],
     },
@@ -355,6 +386,7 @@
     const img = ctx.createImageData(SIZE, SIZE);
     const d = img.data;
     const rows = sprite.rows;
+    const outlines = deriveOutline(palette);
 
     for (let y = 0; y < SIZE; y++) {
       const row = rows[y];
@@ -363,7 +395,7 @@
         if (ch === '.' || ch === undefined) continue;
         const resolver = CHAR_MAP[ch];
         if (!resolver) continue;
-        const c = resolver(palette);
+        const c = resolver(palette, outlines);
         const i = (y * SIZE + x) * 4;
         d[i]     = c[0];
         d[i + 1] = c[1];
@@ -380,7 +412,7 @@
      PALETTE RESOLUTION
      Accepts either:
        - a material name string ('iron', 'gold', ...)
-       - a custom palette object  { head:[rgb,rgb,rgb], handle, accent }
+       - a custom palette object  { head:[rgb,rgb,rgb], handle, accent, outline? }
        - null/undefined  -> defaults to 'iron' head + 'wood' handle
      ============================================================ */
   function resolvePalette(mat) {
@@ -388,9 +420,10 @@
     if (typeof mat === 'string') return MATERIALS[mat] || MATERIALS.iron;
     if (typeof mat === 'object') {
       return {
-        head:   mat.head   || MATERIALS.iron.head,
-        handle: mat.handle || MATERIALS.wood.handle,
-        accent: mat.accent || MATERIALS.iron.accent,
+        head:    mat.head    || MATERIALS.iron.head,
+        handle:  mat.handle  || MATERIALS.wood.handle,
+        accent:  mat.accent  || MATERIALS.iron.accent,
+        outline: mat.outline || null,
       };
     }
     return MATERIALS.iron;
@@ -453,9 +486,10 @@
       throw new Error('[mc-items] registerMaterial requires a name string');
     }
     MATERIALS[name] = {
-      head:   (palette && palette.head)   || MATERIALS.iron.head,
-      handle: (palette && palette.handle) || MATERIALS.wood.handle,
-      accent: (palette && palette.accent) || MATERIALS.iron.accent,
+      head:    (palette && palette.head)    || MATERIALS.iron.head,
+      handle:  (palette && palette.handle)  || MATERIALS.wood.handle,
+      accent:  (palette && palette.accent)  || MATERIALS.iron.accent,
+      outline: (palette && palette.outline) || null,
     };
     // invalidate cache for this material
     for (const k of Array.from(cache.keys())) {

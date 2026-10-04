@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>MC-Tex — Visualizador 3D de Blocos</title>
+<title>MC-Tex — 3D Block Viewer</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;min-height:100%}
@@ -13,7 +13,7 @@
     -webkit-font-smoothing:antialiased;
   }
 
-  /* ---------- barra superior ---------- */
+  /* ---------- top bar ---------- */
   .topbar{
     position:sticky;top:0;z-index:10;
     display:flex;align-items:center;gap:16px;
@@ -39,7 +39,27 @@
   #search:focus{border-color:#3f7a4a;box-shadow:0 0 0 3px #6fd36f22}
   .count{font-size:11px;color:#67748a;white-space:nowrap}
 
-  /* ---------- grade ---------- */
+  .btn{
+    background:#131922;border:1px solid #242e3d;color:#dbe4f0;
+    padding:8px 12px;border-radius:9px;font:inherit;font-size:12px;
+    cursor:pointer;transition:.15s;white-space:nowrap;
+  }
+  .btn:hover{background:#1b2431;border-color:#3a4a60}
+  .btn.active{background:#173d23;border-color:#3f7a4a;color:#8ef09a}
+  .seed{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#131922;border:1px solid #242e3d;border-radius:9px;
+    padding:6px 8px;font-size:11px;color:#8494a8;max-width:190px;
+  }
+  .seed span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .seed-copy{
+    background:#182030;border:1px solid #263143;color:#c8d5e6;
+    border-radius:6px;cursor:pointer;font:inherit;font-size:11px;
+    padding:2px 6px;transition:.13s;
+  }
+  .seed-copy:hover{background:#22304a;border-color:#3b4d68}
+
+  /* ---------- grid ---------- */
   .gallery{
     display:grid;
     grid-template-columns:repeat(auto-fill,minmax(116px,1fr));
@@ -138,10 +158,13 @@
 <body>
 
 <header class="topbar">
-  <div class="brand"><span class="dot"></span>MC-Tex <em>· visualizador 3D</em></div>
+  <div class="brand"><span class="dot"></span>MC-Tex <em>· 3D viewer</em></div>
   <div class="controls">
-    <input id="search" type="search" placeholder="Filtrar blocos…" autocomplete="off" spellcheck="false">
+    <input id="search" type="search" placeholder="Filter blocks…" autocomplete="off" spellcheck="false">
     <span id="count" class="count"></span>
+    <button id="randBtn" class="btn" title="Generate random textures">🎲 Random</button>
+    <button id="resetTexBtn" class="btn" title="Back to deterministic textures" hidden>↺</button>
+    <span id="seedChip" class="seed" hidden><span id="seedText"></span><button id="copySeed" class="seed-copy" title="Copy seed">⧉</button></span>
   </div>
 </header>
 
@@ -149,20 +172,20 @@
 
 <div id="overlay" class="overlay" hidden>
   <div class="viewer">
-    <button id="closeBtn" class="close" title="Fechar (Esc)">✕</button>
+    <button id="closeBtn" class="close" title="Close (Esc)">✕</button>
     <canvas id="bigCanvas"></canvas>
     <div class="info">
       <h2 id="bigName">—</h2>
       <div id="bigFaces" class="faces"></div>
     </div>
     <div class="viewer-tools">
-      <button id="prevBtn"  title="Anterior (←)">◀</button>
-      <button id="autoBtn"  title="Auto-rotacionar (Espaço)">⟳</button>
-      <button id="resetBtn" title="Resetar vista">⌂</button>
-      <button id="pngBtn"   title="Baixar PNG do cubo">⤓</button>
-      <button id="nextBtn"  title="Próximo (→)">▶</button>
+      <button id="prevBtn"  title="Previous (←)">◀</button>
+      <button id="autoBtn"  title="Auto-rotate (Space)">⟳</button>
+      <button id="resetBtn" title="Reset view">⌂</button>
+      <button id="pngBtn"   title="Download cube PNG">⤓</button>
+      <button id="nextBtn"  title="Next (→)">▶</button>
     </div>
-    <div class="hint">arraste para girar · scroll para zoom · ← → para navegar</div>
+    <div class="hint">drag to rotate · scroll to zoom · ← → to navigate</div>
   </div>
 </div>
 
@@ -172,13 +195,13 @@
 'use strict';
 
 /* ============================================================
-   1. GEOMETRIA DO CUBO
+   1. CUBE GEOMETRY
    ------------------------------------------------------------
-   Cada face guarda: normal (para back-face culling + luz),
-   os 4 vértices em espaço local [-0.5 .. 0.5] e a chave de
-   textura que ela usa (top / bottom / side / front).
-   Os vértices estão ordenados de forma que, vistos de fora,
-   A→B é "direita na tela" e A→D é "baixo na tela".
+   Each face stores: normal (for back-face culling + lighting),
+   the 4 vertices in local space [-0.5 .. 0.5] and the texture
+   key it uses (top / bottom / side / front).
+   The vertices are ordered so that, seen from outside,
+   A→B is "right on screen" and A→D is "down on screen".
    ============================================================ */
 const FACE_DEFS = [
   { key:'side',   normal:[ 1, 0, 0], verts:[[ .5, .5, .5],[ .5, .5,-.5],[ .5,-.5,-.5],[ .5,-.5, .5]] },
@@ -188,21 +211,22 @@ const FACE_DEFS = [
   { key:'front',  normal:[ 0, 0, 1], verts:[[-.5, .5, .5],[ .5, .5, .5],[ .5,-.5, .5],[-.5,-.5, .5]] },
   { key:'side',   normal:[ 0, 0,-1], verts:[[ .5, .5,-.5],[-.5, .5,-.5],[-.5,-.5,-.5],[ .5,-.5,-.5]] }
 ];
-const FACE_UV = [[0,0],[1,0],[1,1],[0,1]];   // (u,v) de cada canto
+const FACE_UV = [[0,0],[1,0],[1,1],[0,1]];   // (u,v) of each corner
 
 const TEXSZ = 16;
-const DIST  = 5.0;                            // distância da câmera (unidades de cubo)
+const DIST  = 5.0;                            // camera distance (cube units)
 
 /* ============================================================
-   2. ACESSO AOS PIXELS DAS TEXTURAS
+   2. TEXTURE PIXEL ACCESS
    ============================================================ */
 const pixelCache = new Map();
+let randomSet = null;   // when set, pixels() uses the random textures
 
 function pixels(name) {
   let px = pixelCache.get(name);
   if (px) return px;
   try {
-    const canvas = MCTex.get(name);
+    const canvas = (randomSet && randomSet[name]) ? randomSet[name] : MCTex.get(name);
     px = canvas.getContext('2d').getImageData(0, 0, TEXSZ, TEXSZ).data;
   } catch (e) {
     px = new Uint8ClampedArray(TEXSZ * TEXSZ * 4);
@@ -215,7 +239,7 @@ function pixels(name) {
 }
 
 /* ============================================================
-   3. RESOLUÇÃO DE FACES  (mesma lógica do mc-tex.js)
+   3. FACE RESOLUTION  (same logic as mc-tex.js)
    ============================================================ */
 const ALL = new Set(MCTex.list());
 
@@ -270,8 +294,8 @@ function createView(canvas, w, h) {
 }
 
 /* ============================================================
-   5. RASTERIZADOR DE TRIÂNGULO TEXTURIZADO
-      (perspectiva correta + alpha blending + nearest neighbour)
+   5. TEXTURED TRIANGLE RASTERIZER
+      (perspective correct + alpha blending + nearest neighbour)
    ============================================================ */
 function rasterTri(a, b, c, tex, bright, W, H, buf) {
   let area = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
@@ -287,7 +311,7 @@ function rasterTri(a, b, c, tex, bright, W, H, buf) {
 
   const inv = 1 / area;
 
-  // coeficientes das funções de aresta (barycentric)
+  // edge function coefficients (barycentric)
   const e0a = b.y - c.y, e0b = c.x - b.x, e0c = b.x * c.y - c.x * b.y;
   const e1a = c.y - a.y, e1b = a.x - c.x, e1c = c.x * a.y - a.x * c.y;
 
@@ -345,7 +369,7 @@ function rasterTri(a, b, c, tex, bright, W, H, buf) {
 }
 
 /* ============================================================
-   6. RENDER DE UM CUBO
+   6. CUBE RENDER
    ============================================================ */
 const BG_TOP = [28, 35, 47];
 const BG_BOT = [13, 17, 23];
@@ -353,7 +377,7 @@ const BG_BOT = [13, 17, 23];
 function renderCube(view, blockName, yaw, pitch, zoom) {
   const W = view.w, H = view.h, buf = view.buf;
 
-  /* --- fundo em gradiente --- */
+  /* --- gradient background --- */
   let di = 0;
   for (let y = 0; y < H; y++) {
     const t = H > 1 ? y / (H - 1) : 0;
@@ -371,7 +395,7 @@ function renderCube(view, blockName, yaw, pitch, zoom) {
   const cy = Math.cos(yaw),  sy = Math.sin(yaw);
   const cp = Math.cos(pitch), sp = Math.sin(pitch);
 
-  // rotação: yaw em Y, depois pitch em X
+  // rotation: yaw on Y, then pitch on X
   function rot(x, y, z, out) {
     const x1 = x * cy + z * sy;
     const z1 = -x * sy + z * cy;
@@ -380,7 +404,7 @@ function renderCube(view, blockName, yaw, pitch, zoom) {
     out[2] = -y * sp + z1 * cp;
   }
 
-  const LIGHT = [-0.35, 0.75, 0.56];   // luz em espaço de câmera (já normalizada)
+  const LIGHT = [-0.35, 0.75, 0.56];   // light in camera space (already normalized)
 
   const faces = mesh(blockName);
   const drawList = [];
@@ -400,7 +424,7 @@ function renderCube(view, blockName, yaw, pitch, zoom) {
     // back-face culling
     if (nv[0] * cv[0] + nv[1] * cv[1] + nv[2] * (cv[2] - DIST) >= 0) continue;
 
-    // projeção dos 4 cantos
+    // projection of the 4 corners
     const pts = [];
     let ok = true, dsum = 0;
     for (let i = 0; i < 4; i++) {
@@ -425,7 +449,7 @@ function renderCube(view, blockName, yaw, pitch, zoom) {
     drawList.push({ pts: pts, depth: dsum * 0.25, tex: face.tex, bright: bright });
   }
 
-  // pintor: mais longe primeiro
+  // painter: farthest first
   drawList.sort((a, b) => b.depth - a.depth);
 
   for (let i = 0; i < drawList.length; i++) {
@@ -439,7 +463,7 @@ function renderCube(view, blockName, yaw, pitch, zoom) {
 }
 
 /* ============================================================
-   7. LISTA DE BLOCOS
+   7. BLOCK LIST
    ============================================================ */
 const SUFFIX = /_(top|side|front|bottom|face)$/;
 
@@ -471,7 +495,7 @@ CURATED.forEach(addBlock);
 MCTex.list().forEach(n => { if (!SUFFIX.test(n)) addBlock(n); });
 
 /* ============================================================
-   8. GALERIA
+   8. GALLERY
    ============================================================ */
 const THUMB_SIZE = 128;
 const THUMB_YAW   = -0.62;
@@ -520,17 +544,18 @@ function buildGallery() {
   });
 
   galleryEl.appendChild(frag);
-  countEl.textContent = cards.length + ' blocos';
+  countEl.textContent = cards.length + ' blocks';
   queueInitialRender();
 }
 
-/* ---- render inicial em lotes (não trava a página) ---- */
+/* ---- initial render in batches (does not freeze the page) ---- */
 let pending = [];
 let pendingRaf = 0;
 
 function queueInitialRender() {
   pending = cards.slice();
-  if (!pendingRaf) pendingRaf = requestAnimationFrame(flushInitial);
+  if (pendingRaf) cancelAnimationFrame(pendingRaf);
+  pendingRaf = requestAnimationFrame(flushInitial);
 }
 
 function flushInitial() {
@@ -548,7 +573,7 @@ function drawThumb(entry, yaw, pitch, zoom) {
   entry.rendered = true;
 }
 
-/* ---- animação ao passar o mouse ---- */
+/* ---- hover animation ---- */
 let hoverRaf = 0;
 
 function startHover() {
@@ -571,7 +596,7 @@ function hoverTick() {
     drawThumb(e, yaw, pitch, 1.06);
   }
 
-  // restaura o ângulo base dos que saíram do hover
+  // restore the base angle of those that left hover
   for (let i = 0; i < cards.length; i++) {
     const e = cards[i];
     if (!e.hover && e.wasHover) {
@@ -584,7 +609,7 @@ function hoverTick() {
   if (any) hoverRaf = requestAnimationFrame(hoverTick);
 }
 
-/* ---- filtro ---- */
+/* ---- filter ---- */
 searchEl.addEventListener('input', () => {
   const q = searchEl.value.trim().toLowerCase();
   let visible = 0;
@@ -598,7 +623,7 @@ searchEl.addEventListener('input', () => {
 });
 
 /* ============================================================
-   9. VISUALIZADOR GRANDE
+   9. LARGE VIEWER
    ============================================================ */
 const overlay  = document.getElementById('overlay');
 const bigCanvas = document.getElementById('bigCanvas');
@@ -652,11 +677,11 @@ function showBlock(name) {
 
   const f = resolveFaces(name);
   const rows = [
-    ['topo', f.top],
-    ['laterais', f.side],
-    ['base', f.bottom]
+    ['top', f.top],
+    ['sides', f.side],
+    ['bottom', f.bottom]
   ];
-  if (f.front) rows.push(['frente', f.front]);
+  if (f.front) rows.push(['front', f.front]);
   bigFaces.innerHTML = rows.map(r => '<b>' + r[0] + '</b> ' + r[1]).join(' &nbsp;·&nbsp; ');
 
   dirty = true;
@@ -698,7 +723,7 @@ function step(dir) {
   showBlock(BLOCKS[i]);
 }
 
-/* ---- interação: arrastar ---- */
+/* ---- interaction: drag ---- */
 let dragging = false, lastX = 0, lastY = 0, moved = false;
 
 bigCanvas.addEventListener('pointerdown', (ev) => {
@@ -741,7 +766,7 @@ bigCanvas.addEventListener('wheel', (ev) => {
   dirty = true;
 }, { passive: false });
 
-/* ---- botões ---- */
+/* ---- buttons ---- */
 prevBtn.addEventListener('click', () => step(-1));
 nextBtn.addEventListener('click', () => step(1));
 closeBtn.addEventListener('click', closeViewer);
@@ -762,7 +787,7 @@ autoBtn.addEventListener('click', () => {
 
 pngBtn.addEventListener('click', () => {
   if (!current) return;
-  // renderiza num tamanho fixo bonito antes de exportar
+  // render at a nice fixed size before exporting
   const exp = createView(document.createElement('canvas'), 512, 512);
   renderCube(exp, current.name, current.yaw, current.pitch, current.zoom);
   const a = document.createElement('a');
@@ -775,7 +800,7 @@ overlay.addEventListener('click', (ev) => {
   if (ev.target === overlay) closeViewer();
 });
 
-/* ---- teclado ---- */
+/* ---- keyboard ---- */
 window.addEventListener('keydown', (ev) => {
   if (!current) return;
   if (ev.key === 'Escape')      { closeViewer(); }
@@ -784,7 +809,7 @@ window.addEventListener('keydown', (ev) => {
   else if (ev.key === ' ')          { ev.preventDefault(); autoRotate = !autoRotate; autoBtn.classList.toggle('active', autoRotate); dirty = true; }
 });
 
-/* ---- resize da janela ---- */
+/* ---- window resize ---- */
 let resizeTimer = 0;
 window.addEventListener('resize', () => {
   if (!current) return;
@@ -793,7 +818,52 @@ window.addEventListener('resize', () => {
 });
 
 /* ============================================================
-   10. START
+   10. RANDOM TEXTURES (optional)
+   ============================================================ */
+const randBtn     = document.getElementById('randBtn');
+const resetTexBtn = document.getElementById('resetTexBtn');
+const seedChip    = document.getElementById('seedChip');
+const seedText    = document.getElementById('seedText');
+const copySeed    = document.getElementById('copySeed');
+
+function refreshTextures() {
+  pixelCache.clear();
+  meshCache.clear();
+  queueInitialRender();
+  if (current) dirty = true;
+}
+
+function applyRandom(seed) {
+  randomSet = MCTex.randomAll(seed);
+  refreshTextures();
+  seedText.textContent = seed;
+  seedChip.hidden = false;
+  resetTexBtn.hidden = false;
+  randBtn.classList.add('active');
+}
+
+randBtn.addEventListener('click', () => applyRandom(MCTex.randomSeed()));
+
+resetTexBtn.addEventListener('click', () => {
+  randomSet = null;
+  refreshTextures();
+  seedChip.hidden = true;
+  resetTexBtn.hidden = true;
+  randBtn.classList.remove('active');
+});
+
+copySeed.addEventListener('click', () => {
+  const s = seedText.textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(s).then(() => {
+      copySeed.textContent = '✓';
+      setTimeout(() => { copySeed.textContent = '⧉'; }, 900);
+    });
+  }
+});
+
+/* ============================================================
+   11. START
    ============================================================ */
 buildGallery();
 

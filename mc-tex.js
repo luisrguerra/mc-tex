@@ -9,6 +9,9 @@
      MCTex.blockMaterials(name, THREE)      -> 6 materials
      MCTex.blockMaterials(name, THREE, { faceShade: true })
      MCTex.generate(generator, seedString)  -> fresh canvas
+     MCTex.randomSeed()                     -> random seed string
+     MCTex.random(name, seed?)              -> fresh random canvas
+     MCTex.randomAll(seed?)                 -> { name: fresh random canvas }
    ============================================================ */
 (function (global) {
   'use strict';
@@ -1450,7 +1453,7 @@
     const mTop    = getMaterial(f.top,    THREE, b.top);
     const mBottom = getMaterial(f.bottom, THREE, b.bottom);
     // [ +X, -X, +Y(top), -Y(bottom), +Z, -Z ]
-    // Faces com "front" customizado: -Z recebe o front, +Z recebe side
+    // Faces with a custom "front": -Z gets the front, +Z gets side
     if (front) {
       return [sideM, sideM, mTop, mBottom, sideM, getMaterial(front, THREE, b.z)];
     }
@@ -1483,6 +1486,30 @@
     return Object.assign({}, textures);
   }
 
+  /* ---------- random (opt-in) ----------
+     Unlike get()/generate(), these produce fresh, non-deterministic
+     variations. They never mutate the cached `textures`, so the default
+     deterministic behavior is preserved. */
+  function randomSeed() {
+    return Math.random().toString(36).slice(2, 10);
+  }
+
+  function random(name, seed) {
+    const key = ALIASES[name] || name;
+    const fn = T[key] || T.dirt;
+    const s = (seed === undefined || seed === null) ? randomSeed() : String(seed);
+    return fn(mulberry32(hashStr(s + ':' + key)));
+  }
+
+  function randomAll(seed) {
+    const master = (seed === undefined || seed === null) ? randomSeed() : String(seed);
+    const out = {};
+    Object.keys(T).forEach((name) => {
+      out[name] = T[name](mulberry32(hashStr(master + ':' + name)));
+    });
+    return out;
+  }
+
   global.MCTex = {
     SIZE,
     textures,
@@ -1491,6 +1518,9 @@
     toPNG,
     toPNGBlob,
     blockMaterials,
+    randomSeed,
+    random,
+    randomAll,
     list: () => Object.keys(textures),
     generate: (generatorName, seedString) => {
       const fn = T[generatorName];

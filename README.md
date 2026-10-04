@@ -6,6 +6,8 @@
 
 Procedural **Minecraft-style 16×16 textures** generated entirely in the browser — no image assets, no network requests. Every texture is drawn pixel-by-pixel with a deterministic pseudo-random generator, so the same name always produces the same result.
 
+Textures are deterministic by default, but you can optionally generate **random variations** on demand with `MCTex.random()` / `MCTex.randomAll()` — see [Random textures](#random-textures).
+
 - Zero dependencies (Three.js is optional, only needed for `blockMaterials`)
 - Works in any modern browser via a single `<script>` tag
 - Exports to `HTMLCanvasElement`, PNG data URL, or `Blob`
@@ -138,6 +140,63 @@ Throws an `Error` if the generator name is unknown.
 const a = MCTex.generate('stone', 'seed-1');
 const b = MCTex.generate('stone', 'seed-2'); // different noise pattern
 ```
+
+---
+
+## Random textures
+
+The random API is **opt-in** and **non-destructive**: it never mutates the cached textures used by `get()` / `blockMaterials()`, so the default deterministic behavior is always preserved. Calling one of these methods is the only way to get randomness.
+
+### `MCTex.randomSeed()`
+
+Returns a short random seed string (e.g. `"k3f9a2x1"`). Useful for generating a seed you can display, copy, or persist so a random variant can be reproduced later.
+
+```js
+const seed = MCTex.randomSeed(); // "k3f9a2x1"
+```
+
+---
+
+### `MCTex.random(name, seed?)`
+
+Returns a **fresh** `HTMLCanvasElement` (16×16) for a single texture, generated with a random seed. Aliases are resolved exactly like `get()`, and unknown names fall back to `dirt`.
+
+| Parameter | Type     | Description                                                                 |
+| --------- | -------- | --------------------------------------------------------------------------- |
+| `name`    | `string` | Texture name or alias.                                                      |
+| `seed`    | `string` | Optional. Same seed always yields the same variant; omit for a random one.  |
+
+```js
+// A random stone variant
+const canvas = MCTex.random('stone');
+
+// Reproducible variant
+const a = MCTex.random('stone', 'my-seed');
+const b = MCTex.random('stone', 'my-seed'); // identical to a
+```
+
+---
+
+### `MCTex.randomAll(seed?)`
+
+Returns a **new object** mapping every texture name to a freshly generated random canvas. The cached textures are left untouched, so `get()` and `blockMaterials()` keep returning the deterministic versions.
+
+| Parameter | Type     | Description                                                                        |
+| --------- | -------- | ---------------------------------------------------------------------------------- |
+| `seed`    | `string` | Optional master seed. The same master seed always reproduces the same whole set.   |
+
+```js
+// Randomize every texture at once
+const set = MCTex.randomAll();
+set.stone; // a random stone canvas
+
+// Reproduce a whole set later from its master seed
+const seed = MCTex.randomSeed();
+const first  = MCTex.randomAll(seed);
+const second = MCTex.randomAll(seed); // identical to first
+```
+
+> Each texture in a `randomAll()` set derives its own seed from the master seed, so a single string reproduces the entire collection.
 
 ---
 

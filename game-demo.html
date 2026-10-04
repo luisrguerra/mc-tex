@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -26,66 +26,66 @@ canvas{display:block;width:100%;height:100%}
 <canvas id="c"></canvas>
 <div id="cross"></div><div id="info"></div><div id="name"></div><div id="bar"></div>
 <div id="menu"><h1>Minecraft WebGL</h1>
-Clique para jogar<br>
-WASD mover · Espaço pular · Shift correr · F voar (Espaço sobe / Shift desce)<br>
-Botão esquerdo quebra · direito coloca · 1-9, Q/E ou roda do mouse trocam de bloco<br>
-Esc libera o mouse</div>
+Click to play<br>
+WASD move · Space jump · Shift run · F fly (Space up / Shift down)<br>
+Left click break · right click place · 1-9, Q/E or mouse wheel switch block<br>
+Esc releases the mouse</div>
 <script src="https://luisrguerra.github.io/mc-tex/mc-tex.js"></script>
 <script>
 (function(){
-if(typeof MCTex==='undefined'){alert('mc-tex.js não encontrado. Verifique a conexão com https://luisrguerra.github.io/mc-tex/mc-tex.js');return;}
+if(typeof MCTex==='undefined'){alert('mc-tex.js not found. Check the connection to https://luisrguerra.github.io/mc-tex/mc-tex.js');return;}
 const cv=document.getElementById('c'),gl=cv.getContext('webgl2',{antialias:false});
-if(!gl){alert('WebGL2 não suportado neste navegador.');return;}
+if(!gl){alert('WebGL2 is not supported in this browser.');return;}
 
-/* ---------- blocos: [nome, topo, base, lado, transparente] ---------- */
+/* ---------- blocks: [name, top, bottom, side, transparent] ---------- */
 const S=(n,t,tr)=>[n,t,t,t,tr];
-/* IDs 1..23 são usados pela geração do mundo — não reordenar. */
+/* IDs 1..23 are used by world generation — do not reorder. */
 const B=[0,
- ['Grama','grass_top','dirt','grass_side'],S('Terra','dirt'),S('Pedra','stone'),S('Pedregulho','cobblestone'),
- S('Tábuas','oak_planks'),['Tronco','oak_log_top','oak_log_top','oak_log_side'],S('Folhas','oak_leaves',1),S('Areia','sand'),
- ['Arenito','sandstone_top','sandstone_top','sandstone_side'],S('Vidro','glass',1),S('Tijolos','bricks'),S('Pedra lapidada','stone_bricks'),
- ['Estante','bookshelf_top','bookshelf_top','bookshelf'],S('Glowstone','glowstone'),['TNT','tnt_top','tnt_bottom','tnt_side'],
- ['Bancada','crafting_table_top','oak_planks','crafting_table_front'],S('Obsidiana','obsidian'),S('Neve','snow'),
- S('Minério de carvão','coal_ore'),S('Minério de ferro','iron_ore'),S('Minério de ouro','gold_ore'),S('Minério de diamante','diamond_ore'),
- S('Bedrock','bedrock'),S('Bloco de ouro','gold_block'),S('Bloco de diamante','diamond_block'),
- /* ---------- blocos adicionais ---------- */
- S('Bloco de ferro','iron_block'),S('Bloco de esmeralda','emerald_block'),S('Bloco de carvão','coal_block'),
- S('Bloco de lápis','lapis_block'),S('Bloco de redstone','redstone_block'),S('Bloco de quartzo','quartz_block'),
- S('Bloco de cobre','copper_block'),S('Cobre oxidado','oxidized_copper'),
- S('Barro','clay'),S('Cascalho','gravel'),S('Pedregulho musgoso','mossy_cobblestone'),S('Tijolos rachados','cracked_stone_bricks'),
- S('Andesito','andesite'),S('Diorito','diorite'),S('Granito','granite'),S('Ardósia','deepslate'),S('Ardósia pedregulho','cobbled_deepslate'),
- S('Pedra-negra','blackstone'),S('Areia vermelha','red_sand'),
- ['Arenito vermelho','red_sandstone_top','red_sandstone_top','red_sandstone_side'],
- ['Tronco de pinheiro','spruce_log_top','spruce_log_top','spruce_log_side'],S('Tábuas de pinheiro','spruce_planks'),
- ['Tronco de bétula','birch_log_top','birch_log_top','birch_log_side'],S('Tábuas de bétula','birch_planks'),
- ['Tronco de selva','jungle_log_top','jungle_log_top','jungle_log_side'],S('Tábuas de selva','jungle_planks'),
- ['Tronco de acácia','acacia_log_top','acacia_log_top','acacia_log_side'],S('Tábuas de acácia','acacia_planks'),
- ['Tronco de carvalho escuro','dark_oak_log_top','dark_oak_log_top','dark_oak_log_side'],S('Tábuas de carvalho escuro','dark_oak_planks'),
- ['Caule carmesim','crimson_stem_top','crimson_stem_top','crimson_stem_side'],S('Tábuas carmesim','crimson_planks'),
- ['Caule distorcido','warped_stem_top','warped_stem_top','warped_stem_side'],S('Tábuas distorcidas','warped_planks'),
- S('Folhas de selva','jungle_leaves',1),S('Folhas de acácia','acacia_leaves',1),S('Folhas de carvalho escuro','dark_oak_leaves',1),
- S('Minério de redstone','redstone_ore'),S('Minério de lápis','lapis_ore'),S('Minério de esmeralda','emerald_ore'),S('Minério de quartzo','quartz_ore'),
- S('Lama','mud'),S('Lama compactada','packed_mud'),S('Lanterna do mar','sea_lantern'),
- S('Netherrack','netherrack'),S('Tijolos do Nether','nether_bricks'),S('Areia das almas','soul_sand'),
- S('Pedra do End','end_stone'),S('Bloco de purpur','purpur_block'),S('Prismarinho','prismarine'),
- S('Verruga do Nether','nether_wart_block'),S('Verruga distorcida','warped_wart_block'),
- S('Gelo','ice',1),S('Água','water',1),S('Lava','lava'),S('Terra arada','farmland'),
- ['Cacto','cactus_top','cactus_top','cactus_side'],['Feno','hay_top','hay_top','hay_side'],
- S('Esponja','sponge'),S('Cogumelo marrom','brown_mushroom_block'),S('Cogumelo vermelho','red_mushroom_block'),
- ['Fornalha','furnace_top','furnace_top','furnace_front'],['Baú','chest_top','chest_top','chest_front'],
- ['Abóbora','pumpkin_top','pumpkin_top','pumpkin_face'],['Melancia','melon_top','melon_top','melon_side'],
- S('Lã branca','wool_white'),S('Lã vermelha','wool_red'),S('Lã laranja','wool_orange'),S('Lã amarela','wool_yellow'),
- S('Lã verde','wool_green'),S('Lã azul','wool_blue'),S('Lã roxa','wool_purple'),S('Lã preta','wool_black')];
+ ['Grass','grass_top','dirt','grass_side'],S('Dirt','dirt'),S('Stone','stone'),S('Cobblestone','cobblestone'),
+ S('Planks','oak_planks'),['Log','oak_log_top','oak_log_top','oak_log_side'],S('Leaves','oak_leaves',1),S('Sand','sand'),
+ ['Sandstone','sandstone_top','sandstone_top','sandstone_side'],S('Glass','glass',1),S('Bricks','bricks'),S('Stone Bricks','stone_bricks'),
+ ['Bookshelf','bookshelf_top','bookshelf_top','bookshelf'],S('Glowstone','glowstone'),['TNT','tnt_top','tnt_bottom','tnt_side'],
+ ['Crafting Table','crafting_table_top','oak_planks','crafting_table_front'],S('Obsidian','obsidian'),S('Snow','snow'),
+ S('Coal Ore','coal_ore'),S('Iron Ore','iron_ore'),S('Gold Ore','gold_ore'),S('Diamond Ore','diamond_ore'),
+ S('Bedrock','bedrock'),S('Gold Block','gold_block'),S('Diamond Block','diamond_block'),
+ /* ---------- additional blocks ---------- */
+ S('Iron Block','iron_block'),S('Emerald Block','emerald_block'),S('Coal Block','coal_block'),
+ S('Lapis Block','lapis_block'),S('Redstone Block','redstone_block'),S('Quartz Block','quartz_block'),
+ S('Copper Block','copper_block'),S('Oxidized Copper','oxidized_copper'),
+ S('Clay','clay'),S('Gravel','gravel'),S('Mossy Cobblestone','mossy_cobblestone'),S('Cracked Stone Bricks','cracked_stone_bricks'),
+ S('Andesite','andesite'),S('Diorite','diorite'),S('Granite','granite'),S('Deepslate','deepslate'),S('Cobbled Deepslate','cobbled_deepslate'),
+ S('Blackstone','blackstone'),S('Red Sand','red_sand'),
+ ['Red Sandstone','red_sandstone_top','red_sandstone_top','red_sandstone_side'],
+ ['Spruce Log','spruce_log_top','spruce_log_top','spruce_log_side'],S('Spruce Planks','spruce_planks'),
+ ['Birch Log','birch_log_top','birch_log_top','birch_log_side'],S('Birch Planks','birch_planks'),
+ ['Jungle Log','jungle_log_top','jungle_log_top','jungle_log_side'],S('Jungle Planks','jungle_planks'),
+ ['Acacia Log','acacia_log_top','acacia_log_top','acacia_log_side'],S('Acacia Planks','acacia_planks'),
+ ['Dark Oak Log','dark_oak_log_top','dark_oak_log_top','dark_oak_log_side'],S('Dark Oak Planks','dark_oak_planks'),
+ ['Crimson Stem','crimson_stem_top','crimson_stem_top','crimson_stem_side'],S('Crimson Planks','crimson_planks'),
+ ['Warped Stem','warped_stem_top','warped_stem_top','warped_stem_side'],S('Warped Planks','warped_planks'),
+ S('Jungle Leaves','jungle_leaves',1),S('Acacia Leaves','acacia_leaves',1),S('Dark Oak Leaves','dark_oak_leaves',1),
+ S('Redstone Ore','redstone_ore'),S('Lapis Ore','lapis_ore'),S('Emerald Ore','emerald_ore'),S('Quartz Ore','quartz_ore'),
+ S('Mud','mud'),S('Packed Mud','packed_mud'),S('Sea Lantern','sea_lantern'),
+ S('Netherrack','netherrack'),S('Nether Bricks','nether_bricks'),S('Soul Sand','soul_sand'),
+ S('End Stone','end_stone'),S('Purpur Block','purpur_block'),S('Prismarine','prismarine'),
+ S('Nether Wart Block','nether_wart_block'),S('Warped Wart Block','warped_wart_block'),
+ S('Ice','ice',1),S('Water','water',1),S('Lava','lava'),S('Farmland','farmland'),
+ ['Cactus','cactus_top','cactus_top','cactus_side'],['Hay','hay_top','hay_top','hay_side'],
+ S('Sponge','sponge'),S('Brown Mushroom Block','brown_mushroom_block'),S('Red Mushroom Block','red_mushroom_block'),
+ ['Furnace','furnace_top','furnace_top','furnace_front'],['Chest','chest_top','chest_top','chest_front'],
+ ['Pumpkin','pumpkin_top','pumpkin_top','pumpkin_face'],['Melon','melon_top','melon_top','melon_side'],
+ S('White Wool','wool_white'),S('Red Wool','wool_red'),S('Orange Wool','wool_orange'),S('Yellow Wool','wool_yellow'),
+ S('Green Wool','wool_green'),S('Blue Wool','wool_blue'),S('Purple Wool','wool_purple'),S('Black Wool','wool_black')];
 const BEDROCK=23,PL=[];for(let i=1;i<B.length;i++)if(i!==BEDROCK)PL.push(i);
 
-/* ---------- atlas de texturas a partir do mc-tex.js ---------- */
+/* ---------- texture atlas from mc-tex.js ---------- */
 const names=[...new Set(B.slice(1).flatMap(b=>[b[1],b[2],b[3]]))],COLS=8,ROWS=Math.ceil(names.length/COLS);
 const at=document.createElement('canvas');at.width=COLS*16;at.height=ROWS*16;
 const actx=at.getContext('2d'),A={};
 names.forEach((n,i)=>{const c=i%COLS,r=i/COLS|0;actx.drawImage(MCTex.get(n),c*16,r*16);
  A[n]=[(c*16+.02)/at.width,(r*16+.02)/at.height,((c+1)*16-.02)/at.width,((r+1)*16-.02)/at.height];});
 
-/* ---------- mundo ---------- */
+/* ---------- world ---------- */
 const SX=96,SZ=96,SY=48,CS=16,NC=SX/CS,SEA=17;
 const W=new Uint8Array(SX*SY*SZ),ix=(x,y,z)=>(y*SZ+z)*SX+x;
 const get=(x,y,z)=>y<0?BEDROCK:(x<0||z<0||x>=SX||z>=SZ||y>=SY)?0:W[ix(x,y,z)];
@@ -144,7 +144,7 @@ const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
 gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,at);
 for(const[k,v]of[[gl.TEXTURE_MIN_FILTER,gl.NEAREST],[gl.TEXTURE_MAG_FILTER,gl.NEAREST],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,k,v);
 
-/* ---------- malha dos chunks ---------- */
+/* ---------- chunk mesh ---------- */
 const FD=[
  [[1,0,0],[[1,0,1],[1,0,0],[1,1,0],[1,1,1]],.6,2],
  [[-1,0,0],[[0,0,0],[0,0,1],[0,1,1],[0,1,0]],.6,2],
@@ -180,13 +180,13 @@ function setBlock(x,y,z,id){
  if(z%CS===0)mark(cx,cz-1);if(z%CS===CS-1)mark(cx,cz+1);
 }
 
-/* contorno do bloco selecionado */
+/* selected block outline */
 const lv=[];for(let i=0;i<8;i++)for(const b of[1,2,4])if(!(i&b)){const j=i|b;
  for(const q of[i,j])lv.push((q&1)*1.004-.002,(q>>1&1)*1.004-.002,(q>>2&1)*1.004-.002);}
 const lvao=gl.createVertexArray(),lbuf=gl.createBuffer();gl.bindVertexArray(lvao);gl.bindBuffer(gl.ARRAY_BUFFER,lbuf);
 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(lv),gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
 
-/* ---------- jogador ---------- */
+/* ---------- player ---------- */
 const HW=.3,HH=1.8,EYE=1.62,P={x:SX/2,y:0,z:SZ/2,vx:0,vy:0,vz:0,yaw:0,pitch:0,ground:0,fly:0};
 function spawn(){let y=SY-1;while(y>0&&!W[ix(SX/2,y,SZ/2)])y--;P.x=SX/2+.5;P.z=SZ/2+.5;P.y=y+1;P.vy=0;}
 function hit(){
@@ -210,7 +210,7 @@ function update(dt){
  if(P.y<-20)spawn();
 }
 
-/* ---------- câmera e raycast ---------- */
+/* ---------- camera and raycast ---------- */
 const dirv=()=>{const cp=Math.cos(P.pitch);return[-Math.sin(P.yaw)*cp,Math.sin(P.pitch),-Math.cos(P.yaw)*cp];};
 function mul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s;}return o;}
 function viewProj(asp){
@@ -231,7 +231,7 @@ function ray(){
  }
  return null;}
 
-/* ---------- entrada ---------- */
+/* ---------- input ---------- */
 const menu=document.getElementById('menu'),bar=document.getElementById('bar'),nameEl=document.getElementById('name'),info=document.getElementById('info');
 PL.forEach((id,i)=>{const d=document.createElement('div'),im=new Image();im.src=MCTex.toPNG(B[id][3]);
  d.appendChild(im);if(i<9){const b=document.createElement('b');b.textContent=i+1;d.appendChild(b);}bar.appendChild(d);});
@@ -284,7 +284,7 @@ function frame(now){
   gl.bindVertexArray(lvao);gl.drawArrays(gl.LINES,0,24);}
  frames++;fpsT+=dt;
  if(fpsT>.5){fps=Math.round(frames/fpsT);frames=0;fpsT=0;
-  info.textContent=`${fps} FPS\nXYZ ${P.x.toFixed(1)} ${P.y.toFixed(1)} ${P.z.toFixed(1)}${P.fly?'\nvoando':''}`;}
+  info.textContent=`${fps} FPS\nXYZ ${P.x.toFixed(1)} ${P.y.toFixed(1)} ${P.z.toFixed(1)}${P.fly?'\nflying':''}`;}
  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

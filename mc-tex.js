@@ -848,33 +848,67 @@
     return t.finish();
   };
 
-  function chestBody(r) {
-    const t = createImage();
-    const P = pal(0x8a5a2a, 0x9c6a34, 0xae783e, 0xbf8648, 0xd09654);
-    fillNoise(t, r, P, { cells: 4, clump: 0.4, stretch: 1.3 });
-    for (let i = 0; i < 16; i++) {
-      t.bump(i, 0, -20); t.bump(i, 15, -20);
-      t.bump(0, i, -15); t.bump(15, i, -15);
+  const CHEST_WOOD  = pal(0x8a5a2a, 0x9a6630, 0xa87238, 0xb67e40, 0xc48a4a);
+  const CHEST_FRAME = pal(0x2e1c0c, 0x38220f, 0x422812, 0x4c2e16);
+
+  function chestWood(t, r, x0, y0, x1, y1) {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      putc(t, x, y, ramp(CHEST_WOOD, r()));
     }
-    for (let x = 0; x < 16; x++) t.bump(x, 7, -25);
-    return t;
+    // vertical plank seams
+    for (let x = x0 + 3; x <= x1; x += 4) {
+      for (let y = y0; y <= y1; y++) t.bump(x, y, -16);
+    }
+    // horizontal grain streaks
+    for (let y = y0; y <= y1; y++) {
+      if (r() < 0.45) for (let x = x0; x <= x1; x++) t.bump(x, y, -7);
+    }
   }
-  T.chest_side = function (r) { const t = chestBody(r); return t.finish(); };
-  T.chest_top = function (r) {
-    const t = createImage();
-    const P = pal(0x8a5a2a, 0x9c6a34, 0xae783e, 0xbf8648, 0xd09654);
-    fillNoise(t, r, P, { cells: 4, clump: 0.4, stretch: 1.3 });
+
+  function chestFrame(t, r) {
     for (let i = 0; i < 16; i++) {
-      t.bump(i, 0, -15); t.bump(i, 15, -15);
-      t.bump(0, i, -15); t.bump(15, i, -15);
+      putc(t, i, 0,  pick(r, CHEST_FRAME));
+      putc(t, i, 15, pick(r, CHEST_FRAME));
+      putc(t, 0, i,  pick(r, CHEST_FRAME));
+      putc(t, 15, i, pick(r, CHEST_FRAME));
     }
+  }
+
+  function chestLidSeam(t, r) {
+    for (let x = 1; x < 15; x++) {
+      putc(t, x, 5, pick(r, CHEST_FRAME));
+      t.bump(x, 6, -20);
+    }
+  }
+
+  T.chest_side = function (r) {
+    const t = createImage();
+    chestWood(t, r, 1, 1, 14, 14);
+    chestFrame(t, r);
+    chestLidSeam(t, r);
     return t.finish();
   };
+
+  T.chest_top = function (r) {
+    const t = createImage();
+    chestWood(t, r, 1, 1, 14, 14);
+    chestFrame(t, r);
+    return t.finish();
+  };
+
   T.chest_front = function (r) {
-    const t = chestBody(r);
-    const lock = pal(0x3a3a3a, 0x505050, 0x6a6a6a);
-    for (let y = 6; y < 10; y++) for (let x = 6; x < 10; x++) putc(t, x, y, pick(r, lock));
-    for (let x = 7; x < 9; x++) putc(t, x, 7, [40, 40, 40]);
+    const t = createImage();
+    chestWood(t, r, 1, 1, 14, 14);
+    chestFrame(t, r);
+    chestLidSeam(t, r);
+    // metal latch spanning the lid seam
+    const metal = pal(0x8a8a8a, 0x9e9e9e, 0xb2b2b2, 0xc6c6c6);
+    for (let y = 3; y < 9; y++) for (let x = 7; x < 9; x++) putc(t, x, y, pick(r, metal));
+    for (let x = 7; x < 9; x++) t.bump(x, 3, 20);
+    for (let x = 7; x < 9; x++) t.bump(x, 8, -20);
+    // keyhole
+    putc(t, 7, 6, [40, 40, 40]);
+    putc(t, 8, 6, [40, 40, 40]);
     return t.finish();
   };
 

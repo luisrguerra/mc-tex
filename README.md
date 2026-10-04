@@ -14,7 +14,7 @@ Procedural **Minecraft-style 16×16 textures** generated entirely in the browser
 Just include the script. It attaches a global `MCTex` object.
 
 ```html
-<script src="mc-tex.js"></script>
+<script src="https://luisrguerra.github.io/mc-tex/mc-tex.js"></script>
 <script>
   const canvas = MCTex.get('grass');
   document.body.appendChild(canvas);

@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MC Items — Sprite Gallery</title>
+<style>
+  :root {
+    --scale: 5;
+    --bg: #000;
+    --panel: #0b0b0d;
+    --border: #1d1d23;
+    --border-hi: #3a3a44;
+    --text: #e8e8ea;
+    --muted: #7c7c88;
+    --accent: #5ad1c8;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------------- Header / toolbar ---------------- */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: rgba(0, 0, 0, 0.86);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 14px;
+  }
+
+  .head-row {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 16px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  h1 .accent { color: var(--accent); }
+
+  .subtitle {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+    max-width: 1240px;
+    margin: 12px auto 0;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.06em;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 120px;
+    height: 3px;
+    background: #2a2a32;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border-radius: 3px;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+  }
+
+  input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+    margin: 0;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+    background: #131317;
+    border: 1px solid var(--border-hi);
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  button:hover {
+    background: #1c1c22;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .scale-value {
+    display: inline-block;
+    min-width: 30px;
+    color: var(--accent);
+    text-align: right;
+  }
+
+  /* ---------------- Gallery ---------------- */
+  main {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 24px 20px 64px;
+  }
+
+  .material {
+    margin-bottom: 30px;
+  }
+
+  .material h2 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #9a9aa6;
+  }
+
+  .material h2 .swatch {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16) inset;
+    flex: none;
+  }
+
+  .material h2 .count {
+    color: #4a4a55;
+    letter-spacing: 0.08em;
+    font-weight: 400;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 10px;
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+    padding: 12px 6px 9px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  }
+
+  .card:hover {
+    background: #111116;
+    border-color: var(--border-hi);
+    transform: translateY(-2px);
+  }
+
+  .sprite {
+    display: grid;
+    place-items: center;
+    padding: 6px;
+    border-radius: 6px;
+    background: #060607;
+  }
+
+  /* optional checkerboard backdrop */
+  .sprite.checker {
+    background-color: #0a0a0c;
+    background-image:
+      linear-gradient(45deg, #1a1a20 25%, transparent 25%, transparent 75%, #1a1a20 75%),
+      linear-gradient(45deg, #1a1a20 25%, transparent 25%, transparent 75%, #1a1a20 75%);
+    background-size: 12px 12px;
+    background-position: 0 0, 6px 6px;
+  }
+
+  .card canvas {
+    display: block;
+    width: calc(16px * var(--scale));
+    height: calc(16px * var(--scale));
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+  }
+
+  .label {
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    text-align: center;
+    word-break: break-word;
+    line-height: 1.2;
+  }
+
+  /* ---------------- Modal ---------------- */
+  .modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+    place-items: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.82);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+  }
+
+  .modal.open { display: grid; }
+
+  .modal-inner {
+    background: #0b0b0d;
+    border: 1px solid var(--border-hi);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+    max-width: 92vw;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.85);
+  }
+
+  .modal-inner h3 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .modal-inner .modal-sub {
+    margin: 0 0 18px;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+
+  .modal-preview {
+    display: grid;
+    place-items: center;
+    padding: 14px;
+    margin-bottom: 18px;
+    border-radius: 10px;
+    background: #060607;
+  }
+
+  .modal-preview canvas {
+    display: block;
+    width: calc(16px * var(--scale) * 2.4);
+    height: calc(16px * var(--scale) * 2.4);
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* ---------------- Error ---------------- */
+  .error {
+    max-width: 640px;
+    margin: 60px auto;
+    padding: 20px 22px;
+    border: 1px solid #5c2020;
+    background: #160a0a;
+    border-radius: 10px;
+    color: #ffb0b0;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-row">
+    <h1>MC<span class="accent">Items</span> &mdash; Sprite Gallery</h1>
+    <span class="subtitle" id="stats">&nbsp;</span>
+  </div>
+
+  <div class="toolbar">
+    <label class="control">
+      Scale
+      <input type="range" id="scale" min="2" max="12" step="1" value="5">
+      <span class="scale-value" id="scaleValue">5&times;</span>
+    </label>
+
+    <label class="control">
+      <input type="checkbox" id="checker">
+      Checker background
+    </label>
+
+    <label class="control">
+      <input type="checkbox" id="labels" checked>
+      Labels
+    </label>
+
+    <button id="downloadSheet">Download sprite sheet</button>
+  </div>
+</header>
+
+<main id="gallery"></main>
+
+<div class="modal" id="modal">
+  <div class="modal-inner">
+    <h3 id="modalTitle">—</h3>
+    <p class="modal-sub" id="modalSub">—</p>
+    <div class="modal-preview" id="modalPreview"></div>
+    <div class="modal-actions">
+      <button id="modalDownload">Download PNG</button>
+      <button id="modalClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Companion texture library (same directory) -->
+<script src="mc-tex.js"></script>
+<!-- This library -->
+<script src="mc-items.js"></script>
+
+<script>
+(function () {
+  'use strict';
+
+  var gallery = document.getElementById('gallery');
+
+  /* ---------- Guard: library must be present ---------- */
+  if (typeof window.MCItems === 'undefined') {
+    gallery.innerHTML =
+      '<div class="error">' +
+      '<strong>mc-items.js could not be loaded.</strong><br>' +
+      'Make sure <code>mc-items.js</code> (and its companion <code>mc-tex.js</code>) ' +
+      'sit next to this HTML file and that you are serving the folder over ' +
+      '<code>http://</code> or <code>https://</code> (opening the file with ' +
+      '<code>file://</code> can block sibling scripts in some browsers).' +
+      '</div>';
+    return;
+  }
+
+  var ITEMS = MCItems.list();
+  var MATERIALS = MCItems.materials();
+  var TOTAL = ITEMS.length * MATERIALS.length;
+
+  document.getElementById('stats').textContent =
+    ITEMS.length + ' items \u00d7 ' + MATERIALS.length + ' materials = ' + TOTAL + ' sprites';
+
+  /* ---------- Helpers ---------- */
+  function rgb(c) {
+    return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+  }
+
+  function pretty(name) {
+    return name.replace(/_/g, ' ');
+  }
+
+  /* ---------- Build the gallery ---------- */
+  function build() {
+    var frag = document.createDocumentFragment();
+
+    MATERIALS.forEach(function (mat) {
+      var section = document.createElement('section');
+      section.className = 'material';
+
+      var heading = document.createElement('h2');
+
+      var swatch = document.createElement('span');
+      swatch.className = 'swatch';
+      var headRamp = (MCItems.MATERIALS[mat] && MCItems.MATERIALS[mat].head) || [0, 0, 0];
+      swatch.style.background = rgb(headRamp[1]);
+
+      var nameNode = document.createTextNode(mat);
+
+      var countNode = document.createElement('span');
+      countNode.className = 'count';
+      countNode.textContent = '(' + ITEMS.length + ')';
+
+      heading.appendChild(swatch);
+      heading.appendChild(nameNode);
+      heading.appendChild(countNode);
+      section.appendChild(heading);
+
+      var grid = document.createElement('div');
+      grid.className = 'grid';
+
+      ITEMS.forEach(function (item) {
+        var card = document.createElement('div');
+        card.className = 'card';
+        card.title = item + ' \u2014 ' + mat + ' (click to enlarge)';
+
+        var sprite = document.createElement('div');
+        sprite.className = 'sprite';
+        // MCItems.get() returns the shared, cached 16x16 canvas.
+        sprite.appendChild(MCItems.get(item, mat));
+
+        var label = document.createElement('div');
+        label.className = 'label';
+        label.textContent = pretty(item);
+
+        card.appendChild(sprite);
+        card.appendChild(label);
+        card.addEventListener('click', function () {
+          openModal(item, mat);
+        });
+
+        grid.appendChild(card);
+      });
+
+      section.appendChild(grid);
+      frag.appendChild(section);
+    });
+
+    gallery.innerHTML = '';
+    gallery.appendChild(frag);
+
+    applyChecker(document.getElementById('checker').checked);
+    applyLabels(document.getElementById('labels').checked);
+  }
+
+  /* ---------- Controls ---------- */
+  var scaleInput = document.getElementById('scale');
+  var scaleValue = document.getElementById('scaleValue');
+
+  scaleInput.addEventListener('input', function () {
+    var v = scaleInput.value;
+    document.documentElement.style.setProperty('--scale', v);
+    scaleValue.textContent = v + '\u00d7';
+  });
+
+  function applyChecker(on) {
+    var nodes = gallery.querySelectorAll('.sprite');
+    for (var i = 0; i < nodes.length; i++) {
+      nodes[i].classList.toggle('checker', on);
+    }
+  }
+
+  function applyLabels(on) {
+    var nodes = gallery.querySelectorAll('.label');
+    for (var i = 0; i < nodes.length; i++) {
+      nodes[i].style.display = on ? '' : 'none';
+    }
+  }
+
+  document.getElementById('checker').addEventListener('change', function (e) {
+    applyChecker(e.target.checked);
+  });
+
+  document.getElementById('labels').addEventListener('change', function (e) {
+    applyLabels(e.target.checked);
+  });
+
+  /* ---------- Modal ---------- */
+  var modal = document.getElementById('modal');
+  var modalTitle = document.getElementById('modalTitle');
+  var modalSub = document.getElementById('modalSub');
+  var modalPreview = document.getElementById('modalPreview');
+  var current = null;
+
+  function openModal(item, mat) {
+    current = { item: item, mat: mat };
+
+    modalTitle.textContent = pretty(item);
+    modalSub.textContent = 'material: ' + mat + '  \u00b7  16\u00d716';
+
+    modalPreview.innerHTML = '';
+    // generate() gives a fresh canvas (no cache), so the gallery keeps its own.
+    modalPreview.appendChild(MCItems.generate(item, { material: mat }));
+
+    modal.classList.add('open');
+  }
+
+  function closeModal() {
+    modal.classList.remove('open');
+    modalPreview.innerHTML = '';
+    current = null;
+  }
+
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeModal();
+  });
+
+  function saveDataURL(dataURL, filename) {
+    var a = document.createElement('a');
+    a.href = dataURL;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  document.getElementById('modalDownload').addEventListener('click', function () {
+    if (!current) return;
+    saveDataURL(
+      MCItems.toPNG(current.item, current.mat),
+      current.item + '_' + current.mat + '.png'
+    );
+  });
+
+  /* ---------- Sprite sheet export ---------- */
+  document.getElementById('downloadSheet').addEventListener('click', function () {
+    var PX = 4;                      // screen pixels per sprite pixel
+    var CELL = MCItems.SIZE * PX;    // 64
+    var cols = ITEMS.length;
+    var rows = MATERIALS.length;
+
+    var sheet = document.createElement('canvas');
+    sheet.width = cols * CELL;
+    sheet.height = rows * CELL;
+
+    var ctx = sheet.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    MATERIALS.forEach(function (mat, r) {
+      ITEMS.forEach(function (item, c) {
+        ctx.drawImage(
+          MCItems.get(item, mat),
+          c * CELL,
+          r * CELL,
+          CELL,
+          CELL
+        );
+      });
+    });
+
+    saveDataURL(sheet.toDataURL('image/png'), 'mc-items-sheet.png');
+  });
+
+  /* ---------- Go ---------- */
+  build();
+})();
+</script>
+</body>
+</html>

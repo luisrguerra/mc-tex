@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Minecraft WebGL</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#000;font:13px monospace;color:#fff}
+canvas{display:block;width:100%;height:100%}
+#cross{position:fixed;left:50%;top:50%;width:20px;height:20px;margin:-10px 0 0 -10px;pointer-events:none}
+#cross:before,#cross:after{content:"";position:absolute;background:#fff;mix-blend-mode:difference}
+#cross:before{left:9px;top:0;width:2px;height:20px}
+#cross:after{top:9px;left:0;height:2px;width:20px}
+#bar{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:2px;padding:3px;background:#0008;border:2px solid #000;max-width:94vw}
+#bar div{width:34px;height:34px;border:2px solid #555;background:#0006;position:relative}
+#bar div.on{border-color:#fff}
+#bar img{width:100%;height:100%;image-rendering:pixelated}
+#bar b{position:absolute;left:2px;top:0;font-size:10px;text-shadow:1px 1px #000}
+#info{position:fixed;top:6px;left:8px;text-shadow:1px 1px #000;white-space:pre}
+#name{position:fixed;bottom:84px;width:100%;text-align:center;text-shadow:1px 1px #000;font-size:15px}
+#menu{position:fixed;inset:0;background:#000b;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;text-align:center;line-height:1.8}
+#menu h1{margin:0 0 12px;font-size:34px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="cross"></div><div id="info"></div><div id="name"></div><div id="bar"></div>
+<div id="menu"><h1>Minecraft WebGL</h1>
+Clique para jogar<br>
+WASD mover · Espaço pular · Shift correr · F voar (Espaço sobe / Shift desce)<br>
+Botão esquerdo quebra · direito coloca · 1-9, Q/E ou roda do mouse trocam de bloco<br>
+Esc libera o mouse</div>
+<script src="mc-tex.js"></script>
+<script>
+(function(){
+if(typeof MCTex==='undefined'){alert('mc-tex.js não encontrado. Coloque-o na mesma pasta deste arquivo.');return;}
+const cv=document.getElementById('c'),gl=cv.getContext('webgl2',{antialias:false});
+if(!gl){alert('WebGL2 não suportado neste navegador.');return;}
+
+/* ---------- blocos: [nome, topo, base, lado, transparente] ---------- */
+const S=(n,t,tr)=>[n,t,t,t,tr];
+const B=[0,
+ ['Grama','grass_top','dirt','grass_side'],S('Terra','dirt'),S('Pedra','stone'),S('Pedregulho','cobblestone'),
+ S('Tábuas','oak_planks'),['Tronco','oak_log_top','oak_log_top','oak_log_side'],S('Folhas','oak_leaves',1),S('Areia','sand'),
+ ['Arenito','sandstone_top','sandstone_top','sandstone_side'],S('Vidro','glass',1),S('Tijolos','bricks'),S('Pedra lapidada','stone_bricks'),
+ ['Estante','oak_planks','oak_planks','bookshelf'],S('Glowstone','glowstone'),['TNT','tnt_top','tnt_bottom','tnt_side'],
+ ['Bancada','crafting_table_top','oak_planks','crafting_table_front'],S('Obsidiana','obsidian'),S('Neve','snow'),
+ S('Minério de carvão','coal_ore'),S('Minério de ferro','iron_ore'),S('Minério de ouro','gold_ore'),S('Minério de diamante','diamond_ore'),
+ S('Bedrock','bedrock'),S('Bloco de ouro','gold_block'),S('Bloco de diamante','diamond_block')];
+const BEDROCK=23,PL=[];for(let i=1;i<B.length;i++)if(i!==BEDROCK)PL.push(i);
+
+/* ---------- atlas de texturas a partir do mc-tex.js ---------- */
+const names=[...new Set(B.slice(1).flatMap(b=>[b[1],b[2],b[3]]))],COLS=8,ROWS=Math.ceil(names.length/COLS);
+const at=document.createElement('canvas');at.width=COLS*16;at.height=ROWS*16;
+const actx=at.getContext('2d'),A={};
+names.forEach((n,i)=>{const c=i%COLS,r=i/COLS|0;actx.drawImage(MCTex.get(n),c*16,r*16);
+ A[n]=[(c*16+.02)/at.width,(r*16+.02)/at.height,((c+1)*16-.02)/at.width,((r+1)*16-.02)/at.height];});
+
+/* ---------- mundo ---------- */
+const SX=96,SZ=96,SY=48,CS=16,NC=SX/CS,SEA=17;
+const W=new Uint8Array(SX*SY*SZ),ix=(x,y,z)=>(y*SZ+z)*SX+x;
+const get=(x,y,z)=>y<0?BEDROCK:(x<0||z<0||x>=SX||z>=SZ||y>=SY)?0:W[ix(x,y,z)];
+const solid=(x,y,z)=>y<0||x<0||z<0||x>=SX||z>=SZ||(y<SY&&W[ix(x,y,z)]>0);
+const hs=(x,z,s)=>{let h=Math.imul(x|0,374761393)^Math.imul(z|0,668265263)^Math.imul(s,1274126177);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296;};
+const vn=(x,z,s)=>{const x0=Math.floor(x),z0=Math.floor(z),fx=x-x0,fz=z-z0,u=fx*fx*(3-2*fx),v=fz*fz*(3-2*fz),
+ a=hs(x0,z0,s),b=hs(x0+1,z0,s),c=hs(x0,z0+1,s),d=hs(x0+1,z0+1,s);return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;};
+function generate(){
+ const HT=[];
+ for(let z=0;z<SZ;z++)for(let x=0;x<SX;x++){
+  const n=vn(x/40,z/40,1)*.55+vn(x/20,z/20,2)*.3+vn(x/9,z/9,3)*.15,ht=Math.min(SY-8,Math.floor(8+n*n*40)+4);
+  HT[z*SX+x]=ht;
+  for(let y=0;y<=ht;y++){
+   let id=3;
+   if(y===0)id=BEDROCK;
+   else if(y===ht)id=ht<=SEA+1?8:ht>=30?18:1;
+   else if(y>ht-4)id=ht<=SEA+1?8:2;
+   else{const r=hs(x,z,y+100);
+    if(r<.012)id=19;else if(r<.02&&y<26)id=20;else if(r<.0235&&y<14)id=21;else if(r<.025&&y<10)id=22;}
+   W[ix(x,y,z)]=id;
+  }}
+ for(let z=3;z<SZ-3;z++)for(let x=3;x<SX-3;x++){
+  const ht=HT[z*SX+x];
+  if(W[ix(x,ht,z)]!==1||hs(x,z,7)>=.012)continue;
+  const th=4+Math.floor(hs(x,z,8)*3);
+  for(let y=ht+1;y<=ht+th;y++)W[ix(x,y,z)]=6;
+  for(let dy=th-2;dy<=th+1;dy++){const r=dy>=th?1:2;
+   for(let dz=-r;dz<=r;dz++)for(let dx=-r;dx<=r;dx++){
+    if(r===2&&Math.abs(dx)===2&&Math.abs(dz)===2&&hs(x+dx,z+dz,9)<.5)continue;
+    const yy=ht+dy;if(yy<SY&&!W[ix(x+dx,yy,z+dz)])W[ix(x+dx,yy,z+dz)]=7;}}
+ }
+}
+
+/* ---------- shaders ---------- */
+function prog(v,f){const p=gl.createProgram();
+ for(const[t,s]of[[gl.VERTEX_SHADER,v],[gl.FRAGMENT_SHADER,f]]){const h=gl.createShader(t);gl.shaderSource(h,s);gl.compileShader(h);
+  if(!gl.getShaderParameter(h,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(h);gl.attachShader(p,h);}
+ gl.linkProgram(p);return p;}
+const SKY=[.53,.74,.95];
+const PM=prog(`#version 300 es
+layout(location=0) in vec3 p;layout(location=1) in vec2 t;layout(location=2) in float s;
+uniform mat4 m;uniform vec3 c;out vec2 vt;out float vs;out float d;
+void main(){gl_Position=m*vec4(p,1.);vt=t;vs=s;d=length(p-c);}`,
+`#version 300 es
+precision mediump float;in vec2 vt;in float vs;in float d;uniform sampler2D a;uniform vec3 f;out vec4 o;
+void main(){vec4 k=texture(a,vt);if(k.a<.5)discard;o=vec4(mix(k.rgb*vs,f,clamp((d-40.)/40.,0.,1.)),1.);}`);
+const PL2=prog(`#version 300 es
+layout(location=0) in vec3 p;uniform mat4 m;uniform vec3 o;
+void main(){gl_Position=m*vec4(o+p,1.);gl_Position.z-=.0005*gl_Position.w;}`,
+`#version 300 es
+precision mediump float;out vec4 o;void main(){o=vec4(0.,0.,0.,1.);}`);
+const uM=gl.getUniformLocation(PM,'m'),uC=gl.getUniformLocation(PM,'c'),uF=gl.getUniformLocation(PM,'f'),
+ lM=gl.getUniformLocation(PL2,'m'),lO=gl.getUniformLocation(PL2,'o');
+
+const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);
+gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,at);
+for(const[k,v]of[[gl.TEXTURE_MIN_FILTER,gl.NEAREST],[gl.TEXTURE_MAG_FILTER,gl.NEAREST],[gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE],[gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE]])gl.texParameteri(gl.TEXTURE_2D,k,v);
+
+/* ---------- malha dos chunks ---------- */
+const FD=[
+ [[1,0,0],[[1,0,1],[1,0,0],[1,1,0],[1,1,1]],.6,2],
+ [[-1,0,0],[[0,0,0],[0,0,1],[0,1,1],[0,1,0]],.6,2],
+ [[0,1,0],[[0,1,1],[1,1,1],[1,1,0],[0,1,0]],1,0],
+ [[0,-1,0],[[0,0,0],[1,0,0],[1,0,1],[0,0,1]],.5,1],
+ [[0,0,1],[[0,0,1],[1,0,1],[1,1,1],[0,1,1]],.8,2],
+ [[0,0,-1],[[1,0,0],[0,0,0],[0,1,0],[1,1,0]],.8,2]];
+const UV=[[0,1],[1,1],[1,0],[0,0]],TI=[0,1,2,0,2,3];
+const chunks=[],dirty=new Set();
+for(let i=0;i<NC*NC;i++){
+ const vao=gl.createVertexArray(),buf=gl.createBuffer();gl.bindVertexArray(vao);gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+ gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,24,0);
+ gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,2,gl.FLOAT,false,24,12);
+ gl.enableVertexAttribArray(2);gl.vertexAttribPointer(2,1,gl.FLOAT,false,24,20);
+ chunks.push({vao,buf,n:0});}
+function build(cx,cz){
+ const a=[];
+ for(let y=0;y<SY;y++)for(let z=cz*CS;z<cz*CS+CS;z++)for(let x=cx*CS;x<cx*CS+CS;x++){
+  const id=W[ix(x,y,z)];if(!id)continue;const b=B[id];
+  for(const[n,vs,sh,k]of FD){
+   const nb=get(x+n[0],y+n[1],z+n[2]);
+   if(nb&&!(B[nb][4]&&nb!==id))continue;
+   const r=A[b[1+k]];
+   for(const i of TI){const c=vs[i],u=UV[i];a.push(x+c[0],y+c[1],z+c[2],r[0]+(r[2]-r[0])*u[0],r[1]+(r[3]-r[1])*u[1],sh);}
+  }}
+ const c=chunks[cz*NC+cx];gl.bindVertexArray(c.vao);gl.bindBuffer(gl.ARRAY_BUFFER,c.buf);
+ gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(a),gl.DYNAMIC_DRAW);c.n=a.length/6;
+}
+function setBlock(x,y,z,id){
+ if(x<0||z<0||y<0||x>=SX||z>=SZ||y>=SY)return;
+ W[ix(x,y,z)]=id;const cx=x>>4,cz=z>>4,mark=(a,b)=>{if(a>=0&&b>=0&&a<NC&&b<NC)dirty.add(b*NC+a);};
+ mark(cx,cz);if(x%CS===0)mark(cx-1,cz);if(x%CS===CS-1)mark(cx+1,cz);
+ if(z%CS===0)mark(cx,cz-1);if(z%CS===CS-1)mark(cx,cz+1);
+}
+
+/* contorno do bloco selecionado */
+const lv=[];for(let i=0;i<8;i++)for(const b of[1,2,4])if(!(i&b)){const j=i|b;
+ for(const q of[i,j])lv.push((q&1)*1.004-.002,(q>>1&1)*1.004-.002,(q>>2&1)*1.004-.002);}
+const lvao=gl.createVertexArray(),lbuf=gl.createBuffer();gl.bindVertexArray(lvao);gl.bindBuffer(gl.ARRAY_BUFFER,lbuf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(lv),gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,0,0);
+
+/* ---------- jogador ---------- */
+const HW=.3,HH=1.8,EYE=1.62,P={x:SX/2,y:0,z:SZ/2,vx:0,vy:0,vz:0,yaw:0,pitch:0,ground:0,fly:0};
+function spawn(){let y=SY-1;while(y>0&&!W[ix(SX/2,y,SZ/2)])y--;P.x=SX/2+.5;P.z=SZ/2+.5;P.y=y+1;P.vy=0;}
+function hit(){
+ const x0=Math.floor(P.x-HW),x1=Math.floor(P.x+HW-1e-4),y0=Math.floor(P.y),y1=Math.floor(P.y+HH-1e-4),
+  z0=Math.floor(P.z-HW),z1=Math.floor(P.z+HW-1e-4);
+ for(let y=y0;y<=y1;y++)for(let z=z0;z<=z1;z++)for(let x=x0;x<=x1;x++)if(solid(x,y,z))return true;
+ return false;}
+const keys={};let sel=0;
+function update(dt){
+ let f=(keys.KeyW?1:0)-(keys.KeyS?1:0),s=(keys.KeyD?1:0)-(keys.KeyA?1:0);
+ const l=Math.hypot(f,s)||1;f/=l;s/=l;
+ const sp=P.fly?12:(keys.ShiftLeft||keys.ShiftRight?6.5:4.3),sy=Math.sin(P.yaw),cy=Math.cos(P.yaw);
+ P.vx=(-sy*f+cy*s)*sp;P.vz=(-cy*f-sy*s)*sp;
+ if(P.fly)P.vy=((keys.Space?1:0)-(keys.ShiftLeft?1:0))*10;
+ else{P.vy=Math.max(P.vy-30*dt,-30);if(keys.Space&&P.ground)P.vy=9;}
+ P.ground=0;
+ P.x+=P.vx*dt;if(hit())P.x=P.vx>0?Math.floor(P.x+HW)-HW-1e-3:Math.floor(P.x-HW)+1+HW+1e-3;
+ P.z+=P.vz*dt;if(hit())P.z=P.vz>0?Math.floor(P.z+HW)-HW-1e-3:Math.floor(P.z-HW)+1+HW+1e-3;
+ P.y+=P.vy*dt;
+ if(hit()){if(P.vy<0){P.y=Math.floor(P.y)+1;P.ground=1;}else P.y=Math.floor(P.y+HH)-HH-1e-3;P.vy=0;}
+ if(P.y<-20)spawn();
+}
+
+/* ---------- câmera e raycast ---------- */
+const dirv=()=>{const cp=Math.cos(P.pitch);return[-Math.sin(P.yaw)*cp,Math.sin(P.pitch),-Math.cos(P.yaw)*cp];};
+function mul(a,b){const o=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++){let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s;}return o;}
+function viewProj(asp){
+ const f=dirv(),sy=Math.sin(P.yaw),cy=Math.cos(P.yaw),sp=Math.sin(P.pitch),cp=Math.cos(P.pitch),
+  r=[cy,0,-sy],u=[sy*sp,cp,cy*sp],e=[P.x,P.y+EYE,P.z],d=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+ const V=new Float32Array([r[0],u[0],-f[0],0, r[1],u[1],-f[1],0, r[2],u[2],-f[2],0, -d(r,e),-d(u,e),d(f,e),1]);
+ const t=1/Math.tan(70*Math.PI/360),n=.05,fa=300;
+ const Pm=new Float32Array([t/asp,0,0,0, 0,t,0,0, 0,0,(fa+n)/(n-fa),-1, 0,0,2*fa*n/(n-fa),0]);
+ return mul(Pm,V);}
+function ray(){
+ const o=[P.x,P.y+EYE,P.z],d=dirv(),p=o.map(Math.floor),st=d.map(Math.sign),td=d.map(v=>Math.abs(1/v)),
+  tm=d.map((v,i)=>v===0?Infinity:(v>0?p[i]+1-o[i]:o[i]-p[i])*td[i]);
+ let n=[0,0,0],t=0;
+ while(t<=6){
+  if(get(p[0],p[1],p[2]))return{p:p.slice(),n};
+  const i=tm[0]<tm[1]?(tm[0]<tm[2]?0:2):(tm[1]<tm[2]?1:2);
+  t=tm[i];p[i]+=st[i];tm[i]+=td[i];n=[0,0,0];n[i]=-st[i];
+ }
+ return null;}
+
+/* ---------- entrada ---------- */
+const menu=document.getElementById('menu'),bar=document.getElementById('bar'),nameEl=document.getElementById('name'),info=document.getElementById('info');
+PL.forEach((id,i)=>{const d=document.createElement('div'),im=new Image();im.src=MCTex.toPNG(B[id][3]);
+ d.appendChild(im);if(i<9){const b=document.createElement('b');b.textContent=i+1;d.appendChild(b);}bar.appendChild(d);});
+function select(i){sel=(i+PL.length)%PL.length;[...bar.children].forEach((d,j)=>d.classList.toggle('on',j===sel));nameEl.textContent=B[PL[sel]][0];}
+select(0);
+const locked=()=>document.pointerLockElement===cv;
+menu.onclick=()=>cv.requestPointerLock();
+document.addEventListener('pointerlockchange',()=>{menu.style.display=locked()?'none':'flex';if(!locked())for(const k in keys)keys[k]=false;});
+document.addEventListener('mousemove',e=>{if(!locked())return;P.yaw-=e.movementX*.0022;P.pitch=Math.max(-1.55,Math.min(1.55,P.pitch-e.movementY*.0022));});
+document.addEventListener('keydown',e=>{
+ keys[e.code]=true;
+ if(e.code==='KeyF'&&!e.repeat){P.fly^=1;P.vy=0;}
+ if(e.code==='KeyQ')select(sel-1);if(e.code==='KeyE')select(sel+1);
+ const m=/^Digit([1-9])$/.exec(e.code);if(m)select(+m[1]-1);
+ if(locked()&&e.code==='Space')e.preventDefault();});
+document.addEventListener('keyup',e=>keys[e.code]=false);
+document.addEventListener('wheel',e=>{if(locked())select(sel+Math.sign(e.deltaY));});
+document.addEventListener('contextmenu',e=>e.preventDefault());
+let target=null;
+document.addEventListener('mousedown',e=>{
+ if(!locked()||!target)return;
+ const[x,y,z]=target.p;
+ if(e.button===0){if(get(x,y,z)!==BEDROCK)setBlock(x,y,z,0);}
+ else if(e.button===2&&(target.n[0]||target.n[1]||target.n[2])){
+  const bx=x+target.n[0],by=y+target.n[1],bz=z+target.n[2];
+  const inside=P.x-HW<bx+1&&P.x+HW>bx&&P.y<by+1&&P.y+HH>by&&P.z-HW<bz+1&&P.z+HW>bz;
+  if(!inside&&!get(bx,by,bz))setBlock(bx,by,bz,PL[sel]);
+ }});
+
+/* ---------- loop ---------- */
+function resize(){const r=Math.min(devicePixelRatio||1,1.5);cv.width=cv.clientWidth*r|0;cv.height=cv.clientHeight*r|0;gl.viewport(0,0,cv.width,cv.height);}
+addEventListener('resize',resize);resize();
+generate();spawn();
+for(let cz=0;cz<NC;cz++)for(let cx=0;cx<NC;cx++)build(cx,cz);
+gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.clearColor(SKY[0],SKY[1],SKY[2],1);
+let last=performance.now(),fpsT=0,frames=0,fps=0;
+function frame(now){
+ const dt=Math.min((now-last)/1000,.033);last=now;
+ if(locked())update(dt);
+ for(const i of dirty)build(i%NC,i/NC|0);dirty.clear();
+ target=ray();
+ gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+ const m=viewProj(cv.width/cv.height);
+ gl.useProgram(PM);gl.uniformMatrix4fv(uM,false,m);gl.uniform3f(uC,P.x,P.y+EYE,P.z);gl.uniform3fv(uF,SKY);
+ gl.bindTexture(gl.TEXTURE_2D,tex);
+ for(const c of chunks){gl.bindVertexArray(c.vao);gl.drawArrays(gl.TRIANGLES,0,c.n);}
+ if(target){gl.useProgram(PL2);gl.uniformMatrix4fv(lM,false,m);gl.uniform3f(lO,target.p[0],target.p[1],target.p[2]);
+  gl.bindVertexArray(lvao);gl.drawArrays(gl.LINES,0,24);}
+ frames++;fpsT+=dt;
+ if(fpsT>.5){fps=Math.round(frames/fpsT);frames=0;fpsT=0;
+  info.textContent=`${fps} FPS\nXYZ ${P.x.toFixed(1)} ${P.y.toFixed(1)} ${P.z.toFixed(1)}${P.fly?'\nvoando':''}`;}
+ requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

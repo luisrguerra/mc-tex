@@ -3,6 +3,7 @@
 [https://luisrguerra.github.io/mc-tex/mc-tex.js](https://luisrguerra.github.io/mc-tex/mc-tex.js)
 
 [Demo](https://luisrguerra.github.io/mc-tex/main.html)
+
 [Game Demo](https://luisrguerra.github.io/mc-tex/game-demo.html)
 
 Procedural **Minecraft-style 16×16 textures** generated entirely in the browser — no image assets, no network requests. Every texture is drawn pixel-by-pixel with a deterministic pseudo-random generator, so the same name always produces the same result.

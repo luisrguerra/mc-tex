@@ -17,9 +17,6 @@
           by darkening the darkest shade of each ramp)
      MCItems.registerMaterial(name, palette)      -> register custom material
      MCItems.MATERIALS                            -> raw material table
-     MCItems.THREE.texture(name, mat, THREE)      -> THREE.CanvasTexture
-     MCItems.THREE.spriteMaterial(name, mat, THREE) -> THREE.SpriteMaterial
-     MCItems.THREE.planeMaterial(name, mat, THREE)  -> THREE.MeshBasicMaterial
 
    Items (10):
      sword, pickaxe, axe, shovel, hoe,
@@ -498,45 +495,6 @@
   }
 
   /* ============================================================
-     THREE.js helpers (optional — only used if THREE is passed in)
-     ============================================================ */
-  const textureCache = new Map();
-
-  function threeTexture(name, mat, THREE) {
-    const matKey = (typeof mat === 'string') ? mat : (mat == null ? 'iron' : 'custom');
-    const key = name + ':' + matKey + (matKey === 'custom' ? ':' + Math.random() : '');
-    if (textureCache.has(key)) return textureCache.get(key);
-
-    const canvas = get(name, mat);
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.magFilter = THREE.NearestFilter;
-    tex.minFilter = THREE.NearestFilter;
-    tex.generateMipmaps = false;
-    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
-
-    if (matKey !== 'custom') textureCache.set(key, tex);
-    return tex;
-  }
-
-  function threeSpriteMaterial(name, mat, THREE) {
-    return new THREE.SpriteMaterial({
-      map: threeTexture(name, mat, THREE),
-      transparent: true,
-      depthWrite: false,
-      alphaTest: 0.5,
-    });
-  }
-
-  function threePlaneMaterial(name, mat, THREE) {
-    return new THREE.MeshBasicMaterial({
-      map: threeTexture(name, mat, THREE),
-      transparent: true,
-      alphaTest: 0.5,
-      side: THREE.DoubleSide,
-    });
-  }
-
-  /* ============================================================
      PUBLIC API
      ============================================================ */
   global.MCItems = {
@@ -564,12 +522,5 @@
 
     /* ---- custom materials ---- */
     registerMaterial,
-
-    /* ---- THREE.js helpers ---- */
-    THREE: {
-      texture: threeTexture,
-      spriteMaterial: threeSpriteMaterial,
-      planeMaterial: threePlaneMaterial,
-    },
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -161,24 +161,24 @@
   <div class="card">
     <div>
       <div class="logo"><i class="mdi mdi-cube-outline"></i><h1>MCTEX <span>Demo</span></h1></div>
-      <p class="sub"><i class="mdi mdi-chip"></i>WebGPU puro · texturas procedurais mc-tex · sem Three.js</p>
+      <p class="sub"><i class="mdi mdi-chip"></i>Pure WebGPU · procedural mc-tex textures · no Three.js</p>
       <div id="logoTiles"></div>
-      <button id="btnPlay" class="btn primary"><i class="mdi mdi-play"></i><span>Jogar</span></button>
+      <button id="btnPlay" class="btn primary"><i class="mdi mdi-play"></i><span>Play</span></button>
 
       <div class="section">
-        <h3><i class="mdi mdi-earth"></i>Mundo</h3>
+        <h3><i class="mdi mdi-earth"></i>World</h3>
         <div class="row">
-          <input type="text" id="seedInput" spellcheck="false" placeholder="Semente do mundo">
-          <button id="btnDice" class="btn icon" title="Semente aleatória"><i class="mdi mdi-dice-5"></i></button>
-          <button id="btnNewWorld" class="btn"><i class="mdi mdi-refresh"></i>Novo mundo</button>
+          <input type="text" id="seedInput" spellcheck="false" placeholder="World seed">
+          <button id="btnDice" class="btn icon" title="Random seed"><i class="mdi mdi-dice-5"></i></button>
+          <button id="btnNewWorld" class="btn"><i class="mdi mdi-refresh"></i>New world</button>
         </div>
       </div>
 
       <div class="section">
-        <h3><i class="mdi mdi-palette"></i>Texturas (mc-tex)</h3>
+        <h3><i class="mdi mdi-palette"></i>Textures (mc-tex)</h3>
         <div class="row">
-          <button id="btnTexDefault" class="btn toggle active"><i class="mdi mdi-restore"></i>Padrão</button>
-          <button id="btnTexRandom" class="btn toggle"><i class="mdi mdi-dice-multiple"></i>Aleatórias</button>
+          <button id="btnTexDefault" class="btn toggle active"><i class="mdi mdi-restore"></i>Default</button>
+          <button id="btnTexRandom" class="btn toggle"><i class="mdi mdi-dice-multiple"></i>Random</button>
           <span id="texSeed"></span>
         </div>
       </div>
@@ -186,33 +186,33 @@
 
     <div>
       <div class="section" style="margin-top:0">
-        <h3><i class="mdi mdi-tune"></i>Configurações</h3>
-        <label class="setting"><i class="mdi mdi-eye-outline"></i>Distância de visão
+        <h3><i class="mdi mdi-tune"></i>Settings</h3>
+        <label class="setting"><i class="mdi mdi-eye-outline"></i>View distance
           <input type="range" id="sDist" min="48" max="256" step="16"><output id="oDist"></output></label>
-        <label class="setting"><i class="mdi mdi-angle-acute"></i>Campo de visão
+        <label class="setting"><i class="mdi mdi-angle-acute"></i>Field of view
           <input type="range" id="sFov" min="55" max="110" step="1"><output id="oFov"></output></label>
-        <label class="setting"><i class="mdi mdi-mouse"></i>Sensibilidade
+        <label class="setting"><i class="mdi mdi-mouse"></i>Sensitivity
           <input type="range" id="sSens" min="1" max="20" step="1"><output id="oSens"></output></label>
-        <label class="setting"><i class="mdi mdi-monitor-screenshot"></i>Resolução
+        <label class="setting"><i class="mdi mdi-monitor-screenshot"></i>Resolution
           <input type="range" id="sRes" min="40" max="100" step="5"><output id="oRes"></output></label>
-        <div class="setting"><i class="mdi mdi-blur"></i>Antisserrilhado (MSAA 4x)
-          <button id="btnMsaa" class="btn toggle" style="grid-column:3/5;justify-content:center"><i class="mdi mdi-check"></i><span>Ligado</span></button></div>
+        <div class="setting"><i class="mdi mdi-blur"></i>Anti-aliasing (MSAA 4x)
+          <button id="btnMsaa" class="btn toggle" style="grid-column:3/5;justify-content:center"><i class="mdi mdi-check"></i><span>On</span></button></div>
       </div>
       <div class="section">
-        <h3><i class="mdi mdi-gamepad-variant-outline"></i>Controles</h3>
+        <h3><i class="mdi mdi-gamepad-variant-outline"></i>Controls</h3>
         <div class="controls">
-          <div><i class="mdi mdi-arrow-all"></i><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover</div>
-          <div><i class="mdi mdi-arrow-up-bold-outline"></i><kbd>Espaço</kbd> pular / subir</div>
-          <div><i class="mdi mdi-run-fast"></i><kbd>Shift</kbd> correr / descer</div>
-          <div><i class="mdi mdi-airplane"></i><kbd>F</kbd> voar</div>
-          <div><i class="mdi mdi-pickaxe"></i><kbd>Clique esq.</kbd> quebrar</div>
-          <div><i class="mdi mdi-cube-outline"></i><kbd>Clique dir.</kbd> colocar</div>
-          <div><i class="mdi mdi-eyedropper"></i><kbd>Meio</kbd> copiar bloco</div>
-          <div><i class="mdi mdi-numeric"></i><kbd>1-9</kbd> / roda hotbar</div>
-          <div><i class="mdi mdi-package-variant-closed"></i><kbd>E</kbd> inventário</div>
-          <div><i class="mdi mdi-weather-sunset"></i><kbd>T</kbd> dia / noite</div>
-          <div><i class="mdi mdi-eye-off-outline"></i><kbd>H</kbd> ocultar HUD</div>
-          <div><i class="mdi mdi-pause"></i><kbd>Esc</kbd> pausar</div>
+          <div><i class="mdi mdi-arrow-all"></i><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</div>
+          <div><i class="mdi mdi-arrow-up-bold-outline"></i><kbd>Space</kbd> jump / swim up</div>
+          <div><i class="mdi mdi-run-fast"></i><kbd>Shift</kbd> sprint / sink</div>
+          <div><i class="mdi mdi-airplane"></i><kbd>F</kbd> fly</div>
+          <div><i class="mdi mdi-pickaxe"></i><kbd>Left click</kbd> break</div>
+          <div><i class="mdi mdi-cube-outline"></i><kbd>Right click</kbd> place</div>
+          <div><i class="mdi mdi-eyedropper"></i><kbd>Middle</kbd> pick block</div>
+          <div><i class="mdi mdi-numeric"></i><kbd>1-9</kbd> / hotbar wheel</div>
+          <div><i class="mdi mdi-package-variant-closed"></i><kbd>E</kbd> inventory</div>
+          <div><i class="mdi mdi-weather-sunset"></i><kbd>T</kbd> day / night</div>
+          <div><i class="mdi mdi-eye-off-outline"></i><kbd>H</kbd> hide HUD</div>
+          <div><i class="mdi mdi-pause"></i><kbd>Esc</kbd> pause</div>
         </div>
       </div>
     </div>
@@ -223,9 +223,9 @@
 <div id="inventory" class="overlay hidden">
   <div class="inv">
     <div class="invHead">
-      <h2><i class="mdi mdi-package-variant"></i>Inventário</h2>
-      <input type="text" id="invSearch" spellcheck="false" placeholder="Buscar bloco…">
-      <button id="btnInvClose" class="btn icon" title="Fechar (E)"><i class="mdi mdi-close"></i></button>
+      <h2><i class="mdi mdi-package-variant"></i>Inventory</h2>
+      <input type="text" id="invSearch" spellcheck="false" placeholder="Search block…">
+      <button id="btnInvClose" class="btn icon" title="Close (E)"><i class="mdi mdi-close"></i></button>
     </div>
     <div class="invHint"><i class="mdi mdi-information-outline"></i> Click a block or item to put it in the selected hotbar slot. Use 1-9 or the mouse wheel to switch slots.</div>
     <div class="invTabs">
@@ -239,7 +239,7 @@
 <div id="loading" class="overlay">
   <div class="box">
     <i class="mdi mdi-cube-scan mdi-spin"></i>
-    <h2 id="loadTitle">Iniciando WebGPU…</h2>
+    <h2 id="loadTitle">Initializing WebGPU…</h2>
     <div class="bar"><div id="loadBar"></div></div>
     <div id="loadText"></div>
   </div>
@@ -248,7 +248,7 @@
 <div id="error" class="overlay hidden">
   <div class="box">
     <i class="mdi mdi-alert-octagon-outline"></i>
-    <h2>Não foi possível iniciar</h2>
+    <h2>Could not start</h2>
     <p id="errText"></p>
   </div>
 </div>
@@ -259,107 +259,107 @@ const $ = s => document.querySelector(s);
 const sleep0 = () => new Promise(r => setTimeout(r, 0));
 
 /* =====================================================================
-   BLOCOS
+   BLOCKS
    ===================================================================== */
 const BLOCK_DEFS = [
-  ['grass','Bloco de grama',{top:'grass_top',side:'grass_side',bottom:'dirt'}],
-  ['dirt','Terra','dirt'],
-  ['stone','Pedra','stone'],
-  ['cobblestone','Pedregulho','cobblestone'],
-  ['mossy_cobblestone','Pedregulho musgoso','mossy_cobblestone'],
-  ['stone_bricks','Tijolos de pedra','stone_bricks'],
-  ['cracked_stone_bricks','Tijolos de pedra rachados','cracked_stone_bricks'],
-  ['bedrock','Rocha-matriz','bedrock','unbreak'],
-  ['gravel','Cascalho','gravel'],
-  ['clay','Argila','clay'],
-  ['andesite','Andesito','andesite'],
-  ['diorite','Diorito','diorite'],
-  ['granite','Granito','granite'],
-  ['deepslate','Ardósia profunda','deepslate'],
-  ['cobbled_deepslate','Pedregulho de ardósia','cobbled_deepslate'],
-  ['blackstone','Pedra-negra','blackstone'],
-  ['sand','Areia','sand'],
-  ['sandstone','Arenito',{top:'sandstone_top',side:'sandstone_side'}],
-  ['red_sand','Areia vermelha','red_sand'],
-  ['red_sandstone','Arenito vermelho',{top:'red_sandstone_top',side:'red_sandstone_side'}],
-  ['oak_log','Tronco de carvalho',{top:'oak_log_top',side:'oak_log_side'}],
-  ['spruce_log','Tronco de pinheiro',{top:'spruce_log_top',side:'spruce_log_side'}],
-  ['birch_log','Tronco de bétula',{top:'birch_log_top',side:'birch_log_side'}],
-  ['jungle_log','Tronco da selva',{top:'jungle_log_top',side:'jungle_log_side'}],
-  ['acacia_log','Tronco de acácia',{top:'acacia_log_top',side:'acacia_log_side'}],
-  ['dark_oak_log','Tronco de carvalho escuro',{top:'dark_oak_log_top',side:'dark_oak_log_side'}],
-  ['crimson_stem','Caule carmesim',{top:'crimson_stem_top',side:'crimson_stem_side'}],
-  ['warped_stem','Caule distorcido',{top:'warped_stem_top',side:'warped_stem_side'}],
-  ['oak_planks','Tábuas de carvalho','oak_planks'],
-  ['spruce_planks','Tábuas de pinheiro','spruce_planks'],
-  ['birch_planks','Tábuas de bétula','birch_planks'],
-  ['jungle_planks','Tábuas da selva','jungle_planks'],
-  ['acacia_planks','Tábuas de acácia','acacia_planks'],
-  ['dark_oak_planks','Tábuas de carvalho escuro','dark_oak_planks'],
-  ['crimson_planks','Tábuas carmesim','crimson_planks'],
-  ['warped_planks','Tábuas distorcidas','warped_planks'],
-  ['oak_leaves','Folhas de carvalho','oak_leaves','leaf'],
-  ['jungle_leaves','Folhas da selva','jungle_leaves','leaf'],
-  ['acacia_leaves','Folhas de acácia','acacia_leaves','leaf'],
-  ['dark_oak_leaves','Folhas de carvalho escuro','dark_oak_leaves','leaf'],
-  ['coal_ore','Minério de carvão','coal_ore'],
-  ['iron_ore','Minério de ferro','iron_ore'],
-  ['gold_ore','Minério de ouro','gold_ore'],
-  ['diamond_ore','Minério de diamante','diamond_ore'],
-  ['redstone_ore','Minério de redstone','redstone_ore'],
-  ['lapis_ore','Minério de lápis-lazúli','lapis_ore'],
-  ['emerald_ore','Minério de esmeralda','emerald_ore'],
-  ['quartz_ore','Minério de quartzo','quartz_ore'],
-  ['iron_block','Bloco de ferro','iron_block'],
-  ['gold_block','Bloco de ouro','gold_block'],
-  ['diamond_block','Bloco de diamante','diamond_block'],
-  ['emerald_block','Bloco de esmeralda','emerald_block'],
-  ['coal_block','Bloco de carvão','coal_block'],
-  ['lapis_block','Bloco de lápis-lazúli','lapis_block'],
-  ['redstone_block','Bloco de redstone','redstone_block'],
-  ['quartz_block','Bloco de quartzo','quartz_block'],
-  ['copper_block','Bloco de cobre','copper_block'],
-  ['oxidized_copper','Cobre oxidado','oxidized_copper'],
-  ['mud','Lama','mud'],
-  ['packed_mud','Lama compactada','packed_mud'],
-  ['sea_lantern','Lanterna do mar','sea_lantern','emit'],
-  ['bricks','Tijolos','bricks'],
-  ['nether_bricks','Tijolos do Nether','nether_bricks'],
+  ['grass','Grass Block',{top:'grass_top',side:'grass_side',bottom:'dirt'}],
+  ['dirt','Dirt','dirt'],
+  ['stone','Stone','stone'],
+  ['cobblestone','Cobblestone','cobblestone'],
+  ['mossy_cobblestone','Mossy Cobblestone','mossy_cobblestone'],
+  ['stone_bricks','Stone Bricks','stone_bricks'],
+  ['cracked_stone_bricks','Cracked Stone Bricks','cracked_stone_bricks'],
+  ['bedrock','Bedrock','bedrock','unbreak'],
+  ['gravel','Gravel','gravel'],
+  ['clay','Clay','clay'],
+  ['andesite','Andesite','andesite'],
+  ['diorite','Diorite','diorite'],
+  ['granite','Granite','granite'],
+  ['deepslate','Deepslate','deepslate'],
+  ['cobbled_deepslate','Cobbled Deepslate','cobbled_deepslate'],
+  ['blackstone','Blackstone','blackstone'],
+  ['sand','Sand','sand'],
+  ['sandstone','Sandstone',{top:'sandstone_top',side:'sandstone_side'}],
+  ['red_sand','Red Sand','red_sand'],
+  ['red_sandstone','Red Sandstone',{top:'red_sandstone_top',side:'red_sandstone_side'}],
+  ['oak_log','Oak Log',{top:'oak_log_top',side:'oak_log_side'}],
+  ['spruce_log','Spruce Log',{top:'spruce_log_top',side:'spruce_log_side'}],
+  ['birch_log','Birch Log',{top:'birch_log_top',side:'birch_log_side'}],
+  ['jungle_log','Jungle Log',{top:'jungle_log_top',side:'jungle_log_side'}],
+  ['acacia_log','Acacia Log',{top:'acacia_log_top',side:'acacia_log_side'}],
+  ['dark_oak_log','Dark Oak Log',{top:'dark_oak_log_top',side:'dark_oak_log_side'}],
+  ['crimson_stem','Crimson Stem',{top:'crimson_stem_top',side:'crimson_stem_side'}],
+  ['warped_stem','Warped Stem',{top:'warped_stem_top',side:'warped_stem_side'}],
+  ['oak_planks','Oak Planks','oak_planks'],
+  ['spruce_planks','Spruce Planks','spruce_planks'],
+  ['birch_planks','Birch Planks','birch_planks'],
+  ['jungle_planks','Jungle Planks','jungle_planks'],
+  ['acacia_planks','Acacia Planks','acacia_planks'],
+  ['dark_oak_planks','Dark Oak Planks','dark_oak_planks'],
+  ['crimson_planks','Crimson Planks','crimson_planks'],
+  ['warped_planks','Warped Planks','warped_planks'],
+  ['oak_leaves','Oak Leaves','oak_leaves','leaf'],
+  ['jungle_leaves','Jungle Leaves','jungle_leaves','leaf'],
+  ['acacia_leaves','Acacia Leaves','acacia_leaves','leaf'],
+  ['dark_oak_leaves','Dark Oak Leaves','dark_oak_leaves','leaf'],
+  ['coal_ore','Coal Ore','coal_ore'],
+  ['iron_ore','Iron Ore','iron_ore'],
+  ['gold_ore','Gold Ore','gold_ore'],
+  ['diamond_ore','Diamond Ore','diamond_ore'],
+  ['redstone_ore','Redstone Ore','redstone_ore'],
+  ['lapis_ore','Lapis Lazuli Ore','lapis_ore'],
+  ['emerald_ore','Emerald Ore','emerald_ore'],
+  ['quartz_ore','Nether Quartz Ore','quartz_ore'],
+  ['iron_block','Block of Iron','iron_block'],
+  ['gold_block','Block of Gold','gold_block'],
+  ['diamond_block','Block of Diamond','diamond_block'],
+  ['emerald_block','Block of Emerald','emerald_block'],
+  ['coal_block','Block of Coal','coal_block'],
+  ['lapis_block','Block of Lapis Lazuli','lapis_block'],
+  ['redstone_block','Block of Redstone','redstone_block'],
+  ['quartz_block','Block of Quartz','quartz_block'],
+  ['copper_block','Block of Copper','copper_block'],
+  ['oxidized_copper','Oxidized Copper','oxidized_copper'],
+  ['mud','Mud','mud'],
+  ['packed_mud','Packed Mud','packed_mud'],
+  ['sea_lantern','Sea Lantern','sea_lantern','emit'],
+  ['bricks','Bricks','bricks'],
+  ['nether_bricks','Nether Bricks','nether_bricks'],
   ['netherrack','Netherrack','netherrack'],
-  ['soul_sand','Areia das almas','soul_sand'],
-  ['glowstone','Pedra luminosa','glowstone','emit'],
-  ['obsidian','Obsidiana','obsidian'],
-  ['end_stone','Pedra do End','end_stone'],
-  ['purpur_block','Bloco de púrpura','purpur_block'],
-  ['prismarine','Prismarinho','prismarine'],
-  ['nether_wart_block','Bloco de fungo do Nether','nether_wart_block'],
-  ['warped_wart_block','Bloco de fungo distorcido','warped_wart_block'],
-  ['snow','Neve','snow'],
-  ['ice','Gelo','ice'],
-  ['water','Água','water','water'],
+  ['soul_sand','Soul Sand','soul_sand'],
+  ['glowstone','Glowstone','glowstone','emit'],
+  ['obsidian','Obsidian','obsidian'],
+  ['end_stone','End Stone','end_stone'],
+  ['purpur_block','Purpur Block','purpur_block'],
+  ['prismarine','Prismarine','prismarine'],
+  ['nether_wart_block','Nether Wart Block','nether_wart_block'],
+  ['warped_wart_block','Warped Wart Block','warped_wart_block'],
+  ['snow','Snow','snow'],
+  ['ice','Ice','ice'],
+  ['water','Water','water','water'],
   ['lava','Lava','lava','lava'],
-  ['glass','Vidro','glass','glass'],
-  ['farmland','Terra arada',{top:'farmland',side:'dirt',bottom:'dirt'}],
-  ['cactus','Cacto',{top:'cactus_top',side:'cactus_side'}],
-  ['hay','Fardo de feno',{top:'hay_top',side:'hay_side'}],
-  ['sponge','Esponja','sponge'],
-  ['bookshelf','Estante',{top:'oak_planks',side:'bookshelf'}],
-  ['brown_mushroom_block','Cogumelo marrom','brown_mushroom_block'],
-  ['red_mushroom_block','Cogumelo vermelho','red_mushroom_block'],
-  ['crafting_table','Bancada de trabalho',{top:'crafting_table_top',side:'crafting_table_side',bottom:'oak_planks',front:'crafting_table_front'}],
-  ['furnace','Fornalha',{top:'furnace_top',side:'furnace_side',front:'furnace_front'}],
-  ['chest','Baú',{top:'chest_top',side:'chest_side',front:'chest_front'}],
-  ['pumpkin','Abóbora',{top:'pumpkin_top',side:'pumpkin_side',front:'pumpkin_face'}],
-  ['melon','Melancia',{top:'melon_top',side:'melon_side'}],
+  ['glass','Glass','glass','glass'],
+  ['farmland','Farmland',{top:'farmland',side:'dirt',bottom:'dirt'}],
+  ['cactus','Cactus',{top:'cactus_top',side:'cactus_side'}],
+  ['hay','Hay Bale',{top:'hay_top',side:'hay_side'}],
+  ['sponge','Sponge','sponge'],
+  ['bookshelf','Bookshelf',{top:'oak_planks',side:'bookshelf'}],
+  ['brown_mushroom_block','Brown Mushroom Block','brown_mushroom_block'],
+  ['red_mushroom_block','Red Mushroom Block','red_mushroom_block'],
+  ['crafting_table','Crafting Table',{top:'crafting_table_top',side:'crafting_table_side',bottom:'oak_planks',front:'crafting_table_front'}],
+  ['furnace','Furnace',{top:'furnace_top',side:'furnace_side',front:'furnace_front'}],
+  ['chest','Chest',{top:'chest_top',side:'chest_side',front:'chest_front'}],
+  ['pumpkin','Pumpkin',{top:'pumpkin_top',side:'pumpkin_side',front:'pumpkin_face'}],
+  ['melon','Melon',{top:'melon_top',side:'melon_side'}],
   ['tnt','TNT',{top:'tnt_top',side:'tnt_side',bottom:'tnt_bottom'}],
-  ['wool_white','Lã branca','wool_white'],
-  ['wool_red','Lã vermelha','wool_red'],
-  ['wool_orange','Lã laranja','wool_orange'],
-  ['wool_yellow','Lã amarela','wool_yellow'],
-  ['wool_green','Lã verde','wool_green'],
-  ['wool_blue','Lã azul','wool_blue'],
-  ['wool_purple','Lã roxa','wool_purple'],
-  ['wool_black','Lã preta','wool_black'],
+  ['wool_white','White Wool','wool_white'],
+  ['wool_red','Red Wool','wool_red'],
+  ['wool_orange','Orange Wool','wool_orange'],
+  ['wool_yellow','Yellow Wool','wool_yellow'],
+  ['wool_green','Green Wool','wool_green'],
+  ['wool_blue','Blue Wool','wool_blue'],
+  ['wool_purple','Purple Wool','wool_purple'],
+  ['wool_black','Black Wool','wool_black'],
 ];
 
 const BLOCKS = [null];         // id -> def
@@ -394,7 +394,7 @@ BLOCK_DEFS.forEach(([key, label, tex, flag]) => {
 const FRONT_FACE = [5, 0, 4, 1]; // facing 0:-Z 1:+X 2:+Z 3:-X
 
 /* =====================================================================
-   MUNDO
+   WORLD
    ===================================================================== */
 const CS = 16, WCX = 16, WCZ = 16, WX = CS * WCX, WZ = CS * WCZ, WY = 96, SEA = 32;
 const world = new Uint8Array(WX * WY * WZ);
@@ -491,7 +491,7 @@ function generateWorld(seedStr){
       world[idx(x, y, z)] = (biome === BIOME.SNOW && y === SEA) ? B.ice : B.water;
   }
 
-  // Veios (minérios e variantes de pedra)
+  // Veins (ores and stone variants)
   const vein = (id, count, size, ymin, ymax) => {
     for (let i = 0; i < count; i++){
       let x = (rng() * WX) | 0, z = (rng() * WZ) | 0, y = ymin + ((rng() * (ymax - ymin)) | 0);
@@ -512,7 +512,7 @@ function generateWorld(seedStr){
   vein(B.lapis_ore, 30, 5, 2, 30); vein(B.diamond_ore, 22, 5, 2, 15);
   vein(B.emerald_ore, 40, 1, 30, 90); vein(B.quartz_ore, 20, 4, 2, 40);
 
-  // Cavernas (vermes)
+  // Caves (worms)
   for (let w = 0; w < 70; w++){
     let x = rng() * WX, z = rng() * WZ, y = 6 + rng() * (SEA - 4);
     let yaw = rng() * Math.PI * 2, pit = (rng() - .5) * .5;
@@ -533,13 +533,13 @@ function generateWorld(seedStr){
       }
     }
   }
-  // lagos de lava no fundo das cavernas
+  // lava pools at the bottom of caves
   for (let z = 0; z < WZ; z++) for (let x = 0; x < WX; x++) for (let y = 3; y < 7; y++){
     const i = idx(x, y, z);
     if (world[i] === 0 && SOLID[world[idx(x, y - 1, z)]]) world[i] = B.lava;
   }
 
-  // Vegetação
+  // Vegetation
   const setIfAir = (x, y, z, id) => {
     if (x < 0 || z < 0 || x >= WX || z >= WZ || y < 0 || y >= WY) return;
     const i = idx(x, y, z); if (world[i] === 0) world[i] = id;
@@ -607,7 +607,7 @@ function generateWorld(seedStr){
 }
 
 /* =====================================================================
-   MESHING (vértices compactados: 8 bytes, quads indexados)
+   MESHING (compact vertices: 8 bytes, indexed quads)
    ===================================================================== */
 const FACES = [
   {n:[ 1, 0, 0], c:[[1,0,1],[1,0,0],[1,1,0],[1,1,1]]},
@@ -629,7 +629,7 @@ const AO_OFF = FACES.map(F => {
             n[0]+s1[0]+s2[0], n[1]+s1[1]+s2[1], n[2]+s1[2]+s2[2]];
   });
 });
-// Pré-calcula bits constantes por face/canto: x,z,topo,u,v,face
+// Pre-computed constant bits per face/corner: x,z,top,u,v,face
 const CORNER_BITS = FACES.map((F, f) => F.c.map((c, k) =>
   c[0] | (c[2] << 5) | (UVS[k][0] << 20) | (UVS[k][1] << 21) | (f << 22)));
 const CORNER_TOP = FACES.map(F => F.c.map(c => c[1]));
@@ -647,7 +647,7 @@ class QBuf {
 }
 const solBuf = new QBuf(), cutBuf = new QBuf(), watBuf = new QBuf();
 const B_STONE_ID = B.stone, B_BEDROCK_ID = B.bedrock;
-// Vizinhança para o mesher: fora do mundo na horizontal conta como sólido (não gera paredes invisíveis)
+// Neighborhood for the mesher: outside the world horizontally counts as solid (avoids invisible walls)
 function nbB(x, y, z){
   if (y >= WY) return 0;
   if (y < 0) return B_BEDROCK_ID;
@@ -657,7 +657,7 @@ function nbB(x, y, z){
 function faceVisible(id, nid){
   if (nid === 0) return true;
   if (OCC[nid]) return false;
-  if (LEAF[id] && LEAF[nid]) return false;       // folhas "rápidas": sem faces internas
+  if (LEAF[id] && LEAF[nid]) return false;       // "fast" leaves: no internal faces
   if (nid === id) return false;
   if (LIQ[id] && LIQ[nid]) return false;
   return true;
@@ -677,7 +677,7 @@ function meshChunk(cx, cz){
       for (let x = x0; x < x0 + CS; x++, i++){
         const id = world[i];
         if (!id) continue;
-        // atalho: bloco opaco totalmente cercado por opacos
+        // shortcut: opaque block fully surrounded by opaque blocks
         if (interiorY && interiorZ && x > 0 && x < WX - 1 && OCC[id] &&
             OCC[world[i + 1]] && OCC[world[i - 1]] && OCC[world[i + WX]] && OCC[world[i - WX]] &&
             OCC[world[i + WX * WZ]] && OCC[world[i - WX * WZ]]) continue;
@@ -723,7 +723,7 @@ function meshChunk(cx, cz){
 }
 
 /* =====================================================================
-   TEXTURAS (mc-tex)
+   TEXTURES (mc-tex)
    ===================================================================== */
 let texMode = 'default', texSeedStr = '', randomSet = null;
 function texSource(name){
@@ -759,7 +759,7 @@ function downsample(src, w){
   return out;
 }
 
-/* Ícone isométrico gerado a partir das texturas mc-tex */
+/* Isometric icon generated from mc-tex textures */
 const iconCache = new Map();
 function isoIcon(id){
   const key = id + ':' + texMode + ':' + texSeedStr;
@@ -846,7 +846,7 @@ function loadHotbar(){
 }
 
 /* =====================================================================
-   MATEMÁTICA
+   MATHEMATICS
    ===================================================================== */
 function perspective(out, fovy, aspect, near, far){
   const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
@@ -856,7 +856,7 @@ function perspective(out, fovy, aspect, near, far){
 function lookDir(out, ex, ey, ez, fx, fy, fz){
   // z = -forward
   let zx = -fx, zy = -fy, zz = -fz;
-  let xx = zz, xy = 0, xz = -zx; // cross(up, z) com up=(0,1,0)
+  let xx = zz, xy = 0, xz = -zx; // cross(up, z) with up=(0,1,0)
   let l = Math.hypot(xx, xy, xz) || 1; xx /= l; xz /= l;
   const yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
   out[0] = xx; out[4] = xy; out[8] = xz;  out[12] = -(xx * ex + xy * ey + xz * ez);
@@ -939,7 +939,7 @@ fn finish(c: vec3f, shade: f32, dist: f32) -> vec3f {
 `;
 
 /* =====================================================================
-   ESTADO
+   STATE
    ===================================================================== */
 const canvas = $('#gpu');
 let device, context, format, texture, bindGroup, uniformBuf, lineBuf, indexBuf, indexQuads = 0;
@@ -973,9 +973,9 @@ function setLoad(title, frac, text){
    ===================================================================== */
 async function initGPU(){
   const adapter = await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
-  if (!adapter) throw new Error('Nenhum adaptador WebGPU disponível.');
+  if (!adapter) throw new Error('No WebGPU adapter available.');
   device = await adapter.requestDevice();
-  device.lost.then(info => { if (info.reason !== 'destroyed') fail('O dispositivo WebGPU foi perdido: ' + info.message); });
+  device.lost.then(info => { if (info.reason !== 'destroyed') fail('The WebGPU device was lost: ' + info.message); });
   context = canvas.getContext('webgpu');
   format = navigator.gpu.getPreferredCanvasFormat();
   context.configure({device, format, alphaMode:'opaque'});
@@ -1057,7 +1057,7 @@ function setMSAA(on){
   resize();
 }
 
-// Índices compartilhados para quads (0,1,2, 0,2,3)
+// Shared indices for quads (0,1,2, 0,2,3)
 function ensureIndex(quads){
   if (quads <= indexQuads) return;
   const q = Math.max(quads, indexQuads * 2, 65536);
@@ -1096,10 +1096,10 @@ function resize(){
   depthView = depthTex.createView();
 }
 
-// Reaproveita buffers da GPU quando cabem (evita alocações a cada edição)
+// Reuses GPU buffers when they fit (avoids allocations on every edit)
 function uploadMesh(ch, key, qb){
   const words = qb.n;
-  ch[key + 'N'] = (words >> 3) * 6;          // 8 words por quad -> 6 índices
+  ch[key + 'N'] = (words >> 3) * 6;          // 8 words per quad -> 6 indices
   if (!words) return;
   ensureIndex(words >> 3);
   const bytes = words * 4;
@@ -1121,17 +1121,17 @@ function rebuildChunk(ch){
 }
 
 /* =====================================================================
-   MUNDO: CRIAÇÃO / EDIÇÃO
+   WORLD: CREATION / EDITING
    ===================================================================== */
 async function newWorld(seedStr){
   worldReady = false;
   $('#menu').classList.add('hidden');
   $('#loading').classList.remove('hidden');
-  setLoad('Gerando terreno…', 0, 'Semente: ' + seedStr);
+  setLoad('Generating terrain…', 0, 'Seed: ' + seedStr);
   await sleep0(); await sleep0();
   const {heights} = generateWorld(seedStr);
 
-  // spawn em terra firme próximo ao centro
+  // spawn on land near the center
   let sx = WX >> 1, sz = WZ >> 1;
   outer: for (let r = 0; r < 120; r += 2){
     for (let a = 0; a < 16; a++){
@@ -1156,7 +1156,7 @@ async function newWorld(seedStr){
   for (let i = 0; i < order.length; i++){
     rebuildChunk(order[i]);
     if (performance.now() - t0 > 40){
-      setLoad('Construindo malhas…', (i + 1) / order.length, `Chunk ${i + 1} de ${order.length}`);
+      setLoad('Building meshes…', (i + 1) / order.length, `Chunk ${i + 1} of ${order.length}`);
       await sleep0(); t0 = performance.now();
     }
   }
@@ -1237,7 +1237,7 @@ function doPick(){
 }
 
 /* =====================================================================
-   FÍSICA
+   PHYSICS
    ===================================================================== */
 function collides(){
   const x0 = Math.floor(P.x - .3), x1 = Math.floor(P.x + .3 - 1e-6);
@@ -1386,7 +1386,7 @@ function renderLogoTiles(){
 function refreshIcons(){ renderHotbar(); renderLogoTiles(); if (invOpen) renderInventory(); }
 
 function showMenu(){
-  $('#btnPlay').querySelector('span').textContent = started ? 'Continuar' : 'Jogar';
+  $('#btnPlay').querySelector('span').textContent = started ? 'Continue' : 'Play';
   $('#menu').classList.remove('hidden');
 }
 function lockPointer(){
@@ -1432,7 +1432,7 @@ function bindUI(){
     $('#oDist').textContent = settings.dist; $('#oFov').textContent = settings.fov + '°'; $('#oSens').textContent = settings.sens;
     $('#oRes').textContent = settings.res + '%';
     msaa.classList.toggle('active', settings.msaa);
-    msaa.innerHTML = settings.msaa ? '<i class="mdi mdi-check"></i><span>Ligado</span>' : '<i class="mdi mdi-close"></i><span>Desligado</span>';
+    msaa.innerHTML = settings.msaa ? '<i class="mdi mdi-check"></i><span>On</span>' : '<i class="mdi mdi-close"></i><span>Off</span>';
   };
   res.oninput = () => { settings.res = +res.value; out(); saveSettings(); resize(); };
   msaa.onclick = () => { setMSAA(!settings.msaa); out(); saveSettings(); };
@@ -1516,7 +1516,7 @@ function bindUI(){
 const mouseHeld = {0:false, 2:false}, nextAction = {0:0, 2:0};
 
 /* =====================================================================
-   LOOP DE RENDER
+   RENDER LOOP
    ===================================================================== */
 const proj = new Float32Array(16), view = new Float32Array(16), vp = new Float32Array(16);
 const uni = new Float32Array(28), lineData = new Float32Array(72), planes = new Float32Array(24);
@@ -1528,13 +1528,13 @@ const fog = [0, 0, 0];
 const EDGE = [0,1,1,2,2,3,3,0,4,5,5,6,6,7,7,4,0,4,1,5,2,6,3,7];
 const lineCorners = Array.from({length:8}, () => [0, 0, 0]);
 
-// HUD em cache (só toca no DOM quando o valor muda)
+// Cached HUD (only touches the DOM when the value changes)
 const hud = {};
 const hudCache = new Map();
 function setText(el, v){ if (hudCache.get(el) !== v){ hudCache.set(el, v); el.textContent = v; } }
 function setClass(el, v){ if (el.className !== v) el.className = v; }
 
-// Planos do frustum a partir da matriz view-projection (coluna-maior, profundidade 0..1)
+// Frustum planes from the view-projection matrix (column-major, depth 0..1)
 function extractPlanes(m){
   const set = (o, a, b, c, d) => {
     const l = Math.hypot(a, b, c) || 1;
@@ -1575,7 +1575,7 @@ function frame(now){
 
   const eyeX = P.x, eyeY = P.y + 1.62, eyeZ = P.z;
 
-  // reconstrói chunks alterados (orçamento de ~4 ms por quadro, mais próximos primeiro)
+  // rebuilds changed chunks (~4 ms budget per frame, nearest first)
   const tb = performance.now();
   let dirtyLeft = true;
   while (dirtyLeft && performance.now() - tb < 4){
@@ -1591,7 +1591,7 @@ function frame(now){
   const fw = forward();
   hit = started ? raycast(eyeX, eyeY, eyeZ, fw[0], fw[1], fw[2], 6) : null;
 
-  // luz / céu
+  // light / sky
   const sun = Math.sin(tod * Math.PI * 2);
   const daylight = Math.max(.16, Math.min(1, .55 + sun * .8));
   const dl = (daylight - .16) / .84;
@@ -1628,7 +1628,7 @@ function frame(now){
     device.queue.writeBuffer(lineBuf, 0, lineData);
   }
 
-  // seleção de chunks: distância + frustum, ordenados da frente para trás
+  // chunk selection: distance + frustum, sorted front to back
   const maxD = farD + 12;
   visible.length = 0;
   for (const ch of chunks){
@@ -1678,28 +1678,28 @@ function frame(now){
     const hours = (tod * 24 + 6) % 24, hh = Math.floor(hours), mm = Math.floor((hours - hh) * 60);
     setText(hud.time, `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`);
     setClass(hud.timeIcon, 'mdi ' + (sun > .05 ? 'mdi-weather-sunny' : sun > -.1 ? 'mdi-weather-sunset' : 'mdi-weather-night'));
-    setText(hud.mode, P.fly ? 'Voando' : under ? 'Nadando' : 'Andando');
+    setText(hud.mode, P.fly ? 'Flying' : under ? 'Swimming' : 'Walking');
     setClass(hud.modeIcon, 'mdi ' + (P.fly ? 'mdi-airplane' : under ? 'mdi-swim' : 'mdi-walk'));
     setText(hud.target, hit ? BLOCKS[hit.id].label : '—');
-    setText(hud.tris, `${Math.round(idxCount / 3000)}k triângulos · ${visible.length} chunks`);
+    setText(hud.tris, `${Math.round(idxCount / 3000)}k triangles · ${visible.length} chunks`);
   }
 }
 
 /* =====================================================================
-   INÍCIO
+   STARTUP
    ===================================================================== */
 (async function main(){
   if (!('gpu' in navigator)){
-    return fail('Este navegador não suporta <b>WebGPU</b>. Use uma versão recente do Chrome, Edge ou outro navegador com WebGPU habilitado.');
+    return fail('This browser does not support <b>WebGPU</b>. Use a recent version of Chrome, Edge, or another browser with WebGPU enabled.');
   }
   if (typeof MCTex === 'undefined'){
-    return fail('Não foi possível carregar a biblioteca <b>mc-tex</b> de luisrguerra.github.io/mc-tex/mc-tex.js. Verifique sua conexão.');
+    return fail('Failed to load the <b>mc-tex</b> library from luisrguerra.github.io/mc-tex/mc-tex.js. Check your connection.');
   }
   if (!itemsSupported){
     console.warn('[mc-tex demo] mc-items.js failed to load — item support is disabled (blocks keep working).');
   }
   try {
-    setLoad('Iniciando WebGPU…', .02, 'Gerando ' + texNames.length + ' texturas com mc-tex');
+    setLoad('Initializing WebGPU…', .02, 'Generating ' + texNames.length + ' textures with mc-tex');
     await sleep0();
     await initGPU();
     Object.assign(hud, {fps:$('#iFps'), pos:$('#iPos'), dir:$('#iDir'), time:$('#iTime'), timeIcon:$('#iTimeIcon'),
@@ -1711,7 +1711,7 @@ function frame(now){
     await newWorld($('#seedInput').value || 'mctex');
   } catch (err){
     console.error(err);
-    fail('Erro ao iniciar: ' + (err && err.message ? err.message : err));
+    fail('Startup error: ' + (err && err.message ? err.message : err));
   }
 })();
 </script>

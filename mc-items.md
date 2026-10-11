@@ -2,6 +2,8 @@
 
 A tiny, dependency-free JavaScript library that generates **deterministic Minecraft-style 16×16 pixel-art item sprites** on `<canvas>` elements. Companion to `mc-tex.js`.
 
+[https://luisrguerra.github.io/mc-tex/mc-items.js](https://luisrguerra.github.io/mc-tex/mc-items.js)
+
 ---
 
 ## Table of Contents

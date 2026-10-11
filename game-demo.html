@@ -6,6 +6,7 @@
 <title>MCTEX Demo</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
 <script src="https://luisrguerra.github.io/mc-tex/mc-tex.js"></script>
+<script src="https://luisrguerra.github.io/mc-tex/mc-items.js"></script>
 <style>
   :root{
     --glass: rgba(16,20,28,.66);
@@ -55,6 +56,12 @@
     transition:opacity .25s;pointer-events:none;display:flex;gap:8px;align-items:center}
   #blockName.show{opacity:1}
   #blockName .mdi{color:var(--accent)}
+
+  #held{position:fixed;right:24px;bottom:24px;width:136px;height:136px;pointer-events:none;
+    display:flex;align-items:center;justify-content:center}
+  #held img{width:100%;height:100%;image-rendering:pixelated;filter:drop-shadow(0 10px 16px rgba(0,0,0,.55))}
+  #held.pop img{animation:heldPop .22s ease-out}
+  @keyframes heldPop{from{transform:scale(.55);opacity:0}to{transform:scale(1);opacity:1}}
 
   #underwater{position:fixed;inset:0;background:rgba(20,70,160,.22);pointer-events:none}
 
@@ -118,6 +125,8 @@
   .invHead h2{font-size:20px;display:flex;align-items:center;gap:8px;white-space:nowrap}
   .invHead h2 .mdi{color:var(--accent)}
   .invHint{color:var(--muted);font-size:12px;margin-bottom:10px}
+  .invTabs{display:flex;gap:8px;margin-bottom:10px}
+  .invTabs .btn{flex:1;justify-content:center}
   #invGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;overflow:auto;padding:2px}
   .item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:10px;
     background:var(--glass2);border:1px solid transparent;cursor:pointer;transition:.1s}
@@ -143,6 +152,7 @@
   </div>
   <div id="badge"><i class="mdi mdi-cube-outline"></i>MCTEX Demo <small>WebGPU</small></div>
   <div id="blockName"><i class="mdi mdi-cube"></i><span></span></div>
+  <div id="held"><img alt=""></div>
   <div id="hotbar"></div>
 </div>
 
@@ -217,7 +227,11 @@
       <input type="text" id="invSearch" spellcheck="false" placeholder="Buscar bloco…">
       <button id="btnInvClose" class="btn icon" title="Fechar (E)"><i class="mdi mdi-close"></i></button>
     </div>
-    <div class="invHint"><i class="mdi mdi-information-outline"></i> Clique em um bloco para colocá-lo no slot selecionado da hotbar. Use 1-9 ou a roda do mouse para trocar de slot.</div>
+    <div class="invHint"><i class="mdi mdi-information-outline"></i> Click a block or item to put it in the selected hotbar slot. Use 1-9 or the mouse wheel to switch slots.</div>
+    <div class="invTabs">
+      <button class="btn toggle active" data-tab="blocks"><i class="mdi mdi-cube-outline"></i>Blocks</button>
+      <button class="btn toggle" data-tab="items"><i class="mdi mdi-sword"></i>Items</button>
+    </div>
     <div id="invGrid"></div>
   </div>
 </div>
@@ -772,6 +786,66 @@ function isoIcon(id){
 }
 
 /* =====================================================================
+   ITEMS (mc-items)
+   ===================================================================== */
+const itemsSupported = typeof MCItems !== 'undefined';
+const ITEM_LABELS = {sword:'Sword', pickaxe:'Pickaxe', axe:'Axe', shovel:'Shovel', hoe:'Hoe',
+  bow:'Bow', arrow:'Arrow', fishing_rod:'Fishing Rod', shield:'Shield', torch:'Torch'};
+const MATERIAL_LABELS = {wood:'Wooden', stone:'Stone', iron:'Iron', gold:'Golden',
+  diamond:'Diamond', netherite:'Netherite'};
+function itemLabel(name, material){
+  return `${MATERIAL_LABELS[material] || material} ${ITEM_LABELS[name] || name}`;
+}
+let blankIconURL = '';
+function itemIcon(name, material){
+  if (!itemsSupported){
+    if (!blankIconURL){
+      const c = document.createElement('canvas'); c.width = c.height = 16;
+      blankIconURL = c.toDataURL();
+    }
+    return blankIconURL;
+  }
+  const key = name + ':' + material;
+  if (!iconCache.has('item:' + key)) iconCache.set('item:' + key, MCItems.toPNG(name, material));
+  return iconCache.get('item:' + key);
+}
+
+/* Hotbar slots are strings: 'b:<blockId>' (block) | 'i:<sprite>:<material>' (item).
+   Legacy saves store plain block-id numbers; they are migrated on load. */
+const slotIsItem = v => typeof v === 'string' && v[0] === 'i';
+function slotBlockId(v){ return slotIsItem(v) ? -1 : (typeof v === 'number' ? v : +String(v).slice(2)); }
+function slotLabel(v){
+  if (slotIsItem(v)){ const p = v.split(':'); return itemLabel(p[1], p[2]); }
+  const id = slotBlockId(v);
+  return BLOCKS[id] ? BLOCKS[id].label : '?';
+}
+function slotIcon(v){
+  if (slotIsItem(v)){ const p = v.split(':'); return itemIcon(p[1], p[2]); }
+  const id = slotBlockId(v);
+  return BLOCKS[id] ? isoIcon(id) : '';
+}
+function validSlot(v){
+  if (typeof v !== 'string') return false;
+  if (v[0] === 'b') return !!BLOCKS[+v.slice(2)];
+  if (v[0] === 'i'){
+    const p = v.split(':');
+    return p.length === 3 && !!p[1] && !!p[2] && !!ITEM_LABELS[p[1]] &&
+      (!itemsSupported || MCItems.materials().includes(p[2]));
+  }
+  return false;
+}
+function loadHotbar(){
+  try {
+    const hb = JSON.parse(localStorage.getItem('mctex-demo-hotbar') || 'null');
+    if (Array.isArray(hb) && hb.length === 9){
+      const slots = hb.map(v => (typeof v === 'number' ? 'b:' + v : v));
+      if (slots.every(validSlot)) return slots;
+    }
+  } catch {}
+  return ['grass','dirt','stone','cobblestone','oak_planks','oak_log','glass','bricks','glowstone'].map(k => 'b:' + B[k]);
+}
+
+/* =====================================================================
    MATEMÁTICA
    ===================================================================== */
 function perspective(out, fovy, aspect, near, far){
@@ -879,11 +953,7 @@ const keys = {};
 const DPR = Math.min(devicePixelRatio || 1, 2);
 const settings = Object.assign({dist:128, fov:75, sens:8, res:Math.max(50, Math.round(100 / DPR / 5) * 5), msaa:true},
   JSON.parse(localStorage.getItem('mctex-demo-settings') || '{}'));
-let hotbar = ['grass','dirt','stone','cobblestone','oak_planks','oak_log','glass','bricks','glowstone'].map(k => B[k]);
-try {
-  const hb = JSON.parse(localStorage.getItem('mctex-demo-hotbar') || 'null');
-  if (Array.isArray(hb) && hb.length === 9 && hb.every(i => BLOCKS[i])) hotbar = hb;
-} catch {}
+let hotbar = loadHotbar();
 let sel = 0;
 let hit = null;
 
@@ -1145,11 +1215,14 @@ function doBreak(){
 }
 function doPlace(){
   if (!hit) return;
+  const slot = hotbar[sel];
+  if (slotIsItem(slot)) return;          // items cannot be placed in the world
+  const id = slotBlockId(slot);
+  if (!BLOCKS[id]) return;
   const tx = hit.x + hit.nx, ty = hit.y + hit.ny, tz = hit.z + hit.nz;
   if (ty < 0 || ty >= WY || tx < 0 || tz < 0 || tx >= WX || tz >= WZ) return;
   const cur = getB(tx, ty, tz);
   if (cur && !LIQ[cur]) return;
-  const id = hotbar[sel];
   if (SOLID[id] && playerBoxHits(tx, ty, tz)) return;
   const f = forward(), bx = -f[0], bz = -f[2];
   const facing = Math.abs(bx) > Math.abs(bz) ? (bx > 0 ? 1 : 3) : (bz > 0 ? 2 : 0);
@@ -1157,9 +1230,10 @@ function doPlace(){
 }
 function doPick(){
   if (!hit) return;
-  const existing = hotbar.indexOf(hit.id);
+  const target = 'b:' + hit.id;
+  const existing = hotbar.indexOf(target);
   if (existing >= 0) selectSlot(existing);
-  else { hotbar[sel] = hit.id; saveHotbar(); renderHotbar(); flashName(); }
+  else { hotbar[sel] = target; saveHotbar(); renderHotbar(); flashName(); }
 }
 
 /* =====================================================================
@@ -1241,18 +1315,25 @@ function saveHotbar(){ localStorage.setItem('mctex-demo-hotbar', JSON.stringify(
 
 function renderHotbar(){
   const hb = $('#hotbar'); hb.innerHTML = '';
-  hotbar.forEach((id, i) => {
+  hotbar.forEach((v, i) => {
     const d = document.createElement('div');
     d.className = 'slot' + (i === sel ? ' sel' : '');
-    d.innerHTML = `<span class="k">${i + 1}</span><img alt="" src="${isoIcon(id)}">`;
-    d.title = BLOCKS[id].label;
+    d.innerHTML = `<span class="k">${i + 1}</span><img alt="" src="${slotIcon(v)}">`;
+    d.title = slotLabel(v);
     hb.appendChild(d);
   });
+  updateHeld();
+}
+function updateHeld(){
+  const el = $('#held'), img = el.querySelector('img');
+  img.src = slotIcon(hotbar[sel]);
+  el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
 }
 let nameTimer = 0;
 function flashName(){
   const el = $('#blockName');
-  el.querySelector('span').textContent = BLOCKS[hotbar[sel]].label;
+  el.querySelector('span').textContent = slotLabel(hotbar[sel]);
+  el.querySelector('i').className = 'mdi ' + (slotIsItem(hotbar[sel]) ? 'mdi-sword' : 'mdi-cube');
   el.classList.add('show');
   clearTimeout(nameTimer);
   nameTimer = setTimeout(() => el.classList.remove('show'), 1400);
@@ -1260,18 +1341,41 @@ function flashName(){
 function selectSlot(i){
   sel = (i + 9) % 9; renderHotbar(); flashName();
 }
+let invTab = 'blocks';
 function renderInventory(){
   const q = $('#invSearch').value.trim().toLowerCase();
   const grid = $('#invGrid'); grid.innerHTML = '';
-  for (let id = 1; id < BLOCKS.length; id++){
-    const b = BLOCKS[id];
-    if (q && !b.label.toLowerCase().includes(q) && !b.key.includes(q)) continue;
-    const d = document.createElement('div');
-    d.className = 'item';
-    d.title = `${b.label} (${b.key})`;
-    d.innerHTML = `<img alt="" src="${isoIcon(id)}"><span>${b.label}</span>`;
-    d.onclick = () => { hotbar[sel] = id; saveHotbar(); renderHotbar(); flashName(); };
-    grid.appendChild(d);
+  document.querySelectorAll('.invTabs .btn').forEach(b => b.classList.toggle('active', b.dataset.tab === invTab));
+  $('#invSearch').placeholder = invTab === 'items' ? 'Search items…' : 'Search blocks…';
+  const assign = v => { hotbar[sel] = v; saveHotbar(); renderHotbar(); flashName(); };
+  if (invTab === 'items'){
+    if (!itemsSupported){
+      grid.innerHTML = '<div class="invHint">Items are unavailable — mc-items.js failed to load.</div>';
+      return;
+    }
+    for (const name of MCItems.list()){
+      for (const mat of MCItems.materials()){
+        const label = itemLabel(name, mat);
+        if (q && !label.toLowerCase().includes(q) && !name.includes(q) && !mat.includes(q)) continue;
+        const d = document.createElement('div');
+        d.className = 'item';
+        d.title = `${label} (${name} / ${mat})`;
+        d.innerHTML = `<img alt="" src="${itemIcon(name, mat)}"><span>${label}</span>`;
+        d.onclick = () => assign('i:' + name + ':' + mat);
+        grid.appendChild(d);
+      }
+    }
+  } else {
+    for (let id = 1; id < BLOCKS.length; id++){
+      const b = BLOCKS[id];
+      if (q && !b.label.toLowerCase().includes(q) && !b.key.includes(q)) continue;
+      const d = document.createElement('div');
+      d.className = 'item';
+      d.title = `${b.label} (${b.key})`;
+      d.innerHTML = `<img alt="" src="${isoIcon(id)}"><span>${b.label}</span>`;
+      d.onclick = () => assign('b:' + id);
+      grid.appendChild(d);
+    }
   }
 }
 function renderLogoTiles(){
@@ -1349,6 +1453,8 @@ function bindUI(){
   $('#btnTexRandom').onclick = () => setTexMode('random');
   $('#btnInvClose').onclick = closeInv;
   $('#invSearch').oninput = renderInventory;
+  document.querySelectorAll('.invTabs .btn').forEach(b =>
+    b.onclick = () => { invTab = b.dataset.tab; renderInventory(); });
 
   document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement === canvas){
@@ -1588,6 +1694,9 @@ function frame(now){
   }
   if (typeof MCTex === 'undefined'){
     return fail('Não foi possível carregar a biblioteca <b>mc-tex</b> de luisrguerra.github.io/mc-tex/mc-tex.js. Verifique sua conexão.');
+  }
+  if (!itemsSupported){
+    console.warn('[mc-tex demo] mc-items.js failed to load — item support is disabled (blocks keep working).');
   }
   try {
     setLoad('Iniciando WebGPU…', .02, 'Gerando ' + texNames.length + ' texturas com mc-tex');
